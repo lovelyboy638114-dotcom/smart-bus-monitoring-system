@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
   Bus, Users, ShieldAlert, Award, Bell, Search,
-  TrendingUp, AlertTriangle, AlertCircle, ArrowUpRight, CheckCircle2, UserCheck, Eye, Compass
+  TrendingUp, AlertTriangle, AlertCircle, ArrowUpRight, CheckCircle2, UserCheck, Eye, Compass, AlertOctagon
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { 
@@ -10,15 +10,34 @@ import {
 } from 'recharts';
 
 const AdminDashboard = () => {
-  const { buses, students, alerts, driverBehavior, driverComplaints, resolveComplaint } = useApp();
+  const { 
+    buses, 
+    students, 
+    alerts, 
+    driverBehavior, 
+    driverComplaints, 
+    resolveComplaint,
+    activeSOSAlerts = [],
+    sosStatistics,
+    acknowledgeSOSAlert,
+    resolveSOSAlert,
+    triggerNotification = () => {}
+  } = useApp();
 
   // Search input state
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Emergency state
+  const [selectedSOS, setSelectedSOS] = useState(null);
+  const [remarks, setRemarks] = useState('');
+  const [error, setError] = useState('');
+
+  const syncedSOS = selectedSOS ? (activeSOSAlerts.find(a => a.sos_id === selectedSOS.sos_id) || selectedSOS) : null;
+
   const unresolvedAlerts = alerts.filter(a => !a.resolved);
-  const activeTripsCount = buses.filter(b => b.status === 'On Route' || b.status === 'In Transit').length;
-  const totalStudentsCount = 458; 
-  const studentsOnBoard = students.filter(s => s.boarded && !s.reachedSchool).length + 86; 
+  const activeTripsCount = buses.filter(b => b.status === 'Running' || b.status === 'On Route' || b.status === 'In Transit').length;
+  const totalStudentsCount = students.length; 
+  const studentsOnBoard = students.filter(s => s.status === 'On Board').length; 
 
   const safetyTrendData = [
     { day: 'Mon', score: 88 },
@@ -27,13 +46,17 @@ const AdminDashboard = () => {
     { day: 'Thu', score: 87 },
     { day: 'Fri', score: 89 },
     { day: 'Sat', score: 90 },
-    { day: 'Sun', score: driverBehavior.safetyScore } 
+    { day: 'Sun', score: (driverBehavior && driverBehavior.safetyScore) ? driverBehavior.safetyScore : 95 } 
   ];
 
+  const presentCount = students.filter(s => s.attendance === 'Present').length;
+  const absentCount = students.filter(s => s.attendance === 'Absent').length;
+  const lateCount = students.filter(s => s.attendance === 'Late').length;
+
   const attendanceChartData = [
-    { name: 'Present', count: 420, fill: '#10b981' },
-    { name: 'Absent', count: 30, fill: '#ef4444' },
-    { name: 'Late', count: 8, fill: '#f59e0b' }
+    { name: 'Present', count: presentCount, fill: '#10b981' },
+    { name: 'Absent', count: absentCount, fill: '#ef4444' },
+    { name: 'Late', count: lateCount, fill: '#f59e0b' }
   ];
 
   const stats = [
@@ -113,14 +136,74 @@ const AdminDashboard = () => {
     : null;
 
   return (
-    <div className="flex flex-col gap-6 p-6 font-sans">
+    <div className="flex flex-col gap-6 p-6 font-sans relative">
+      
+      {/* Flashing critical alarm warning banner */}
+      {activeSOSAlerts.length > 0 && (
+        <div className="w-full bg-rose-600 text-white font-extrabold text-center py-3.5 text-xs uppercase tracking-widest flex items-center justify-center gap-3 animate-pulse border-b border-rose-700 rounded-xl mb-4 shadow-lg shadow-rose-600/20">
+          <AlertOctagon className="w-5 h-5 text-white animate-spin" />
+          <span>CRITICAL EMERGENCY WARNING: {activeSOSAlerts.length} Bus SOS alerts active. Action Required!</span>
+          <button 
+            onClick={() => setSelectedSOS(activeSOSAlerts[0])}
+            className="ml-4 bg-white text-rose-700 hover:bg-rose-50 px-3.5 py-1.5 rounded-lg text-[10px] font-black tracking-wider transition-smooth uppercase shadow"
+          >
+            Open Control Center
+          </button>
+        </div>
+      )}
+
       {/* Page Title & welcome */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-black text-slate-800 uppercase tracking-wide">Fleet Safety Command Dashboard</h2>
           <p className="text-xs text-slate-500 font-medium mt-0.5">Real-time status updates and telemetry feeds overview.</p>
         </div>
+        
+        {/* Active Emergency Counter Badge */}
+        {activeSOSAlerts.length > 0 && (
+          <button
+            onClick={() => setSelectedSOS(activeSOSAlerts[0])}
+            className="flex items-center gap-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl uppercase tracking-wider animate-pulse cursor-pointer shadow-md shadow-rose-600/30"
+          >
+            <ShieldAlert className="w-4 h-4 animate-bounce" />
+            🚨 active emergencies: {activeSOSAlerts.length}
+          </button>
+        )}
       </div>
+
+      {/* Emergency Response statistics metrics center center */}
+      {activeSOSAlerts.length > 0 && (
+        <div className="bg-rose-50/50 border border-rose-100 p-5 rounded-2xl grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-2">
+          <div className="p-3 bg-white border border-rose-100 rounded-xl">
+            <span className="text-[8px] font-extrabold text-slate-400 uppercase tracking-widest block mb-0.5">Critical Alerts</span>
+            <h4 className="text-lg font-black text-rose-600">{activeSOSAlerts.filter(a => a.severity === 'CRITICAL').length}</h4>
+          </div>
+          <div className="p-3 bg-white border border-rose-100 rounded-xl">
+            <span className="text-[8px] font-extrabold text-slate-400 uppercase tracking-widest block mb-0.5">Today's Alerts</span>
+            <h4 className="text-lg font-black text-slate-800">{sosStatistics?.total_alerts || 0}</h4>
+          </div>
+          <div className="p-3 bg-white border border-rose-100 rounded-xl col-span-2 md:col-span-1">
+            <span className="text-[8px] font-extrabold text-slate-400 uppercase tracking-widest block mb-0.5">Avg Response</span>
+            <h4 className="text-lg font-black text-slate-800">{sosStatistics?.avg_acknowledgment_time_seconds ? `${sosStatistics.avg_acknowledgment_time_seconds}s` : "0.0s"}</h4>
+          </div>
+          <div className="p-3 bg-white border border-rose-100 rounded-xl col-span-2 md:col-span-1">
+            <span className="text-[8px] font-extrabold text-slate-400 uppercase tracking-widest block mb-0.5">Avg Resolution</span>
+            <h4 className="text-lg font-black text-slate-800">{sosStatistics?.avg_resolution_time_seconds ? `${sosStatistics.avg_resolution_time_seconds}s` : "0.0s"}</h4>
+          </div>
+          <div className="p-3 bg-white border border-rose-100 rounded-xl">
+            <span className="text-[8px] font-extrabold text-slate-400 uppercase tracking-widest block mb-0.5">Police Alerted</span>
+            <h4 className="text-lg font-black text-slate-800">{activeSOSAlerts.filter(a => a.status === 'POLICE_NOTIFIED' || a.status === 'ADMIN_ACKNOWLEDGED').length}</h4>
+          </div>
+          <div className="p-3 bg-white border border-rose-100 rounded-xl">
+            <span className="text-[8px] font-extrabold text-slate-400 uppercase tracking-widest block mb-0.5">Parents Waiting</span>
+            <h4 className="text-lg font-black text-slate-800">{activeSOSAlerts.filter(a => a.status === 'POLICE_NOTIFIED').length}</h4>
+          </div>
+          <div className="p-3 bg-white border border-rose-100 rounded-xl">
+            <span className="text-[8px] font-extrabold text-slate-400 uppercase tracking-widest block mb-0.5">Resolved Today</span>
+            <h4 className="text-lg font-black text-slate-800">{sosStatistics?.resolved_alerts || 0}</h4>
+          </div>
+        </div>
+      )}
 
       {/* Grid Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
@@ -481,6 +564,170 @@ const AdminDashboard = () => {
           </table>
         </div>
       </div>
+
+      {/* Emergency Drawer Panel */}
+      {syncedSOS && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex justify-end animate-fade-in">
+          <div className="w-full max-w-lg bg-white h-full shadow-2xl flex flex-col justify-between font-sans">
+            
+            {/* Header */}
+            <div className="bg-slate-900 text-white p-5 flex justify-between items-center">
+              <div>
+                <span className="text-[10px] font-extrabold text-rose-500 uppercase tracking-widest block leading-none mb-1">
+                  Incident control center
+                </span>
+                <h3 className="text-sm font-black uppercase tracking-wide">
+                  Emergency ID: {syncedSOS.sos_id}
+                </h3>
+              </div>
+              <button 
+                onClick={() => { setSelectedSOS(null); setRemarks(""); setError(""); }}
+                className="text-slate-400 hover:text-white font-bold text-xs uppercase cursor-pointer"
+              >
+                Close Control Panel
+              </button>
+            </div>
+            
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6">
+              
+              {/* Alert Meta details */}
+              <div className="bg-slate-50 border border-slate-200/80 p-4 rounded-xl flex flex-col gap-2">
+                <div className="flex justify-between text-xs font-bold border-b border-slate-200 pb-1.5 mb-1.5">
+                  <span className="text-slate-500">Bus ID:</span>
+                  <span className="text-slate-800">{syncedSOS.bus_id}</span>
+                </div>
+                <div className="flex justify-between text-xs font-bold border-b border-slate-200 pb-1.5 mb-1.5">
+                  <span className="text-slate-500">Assigned Driver:</span>
+                  <span className="text-slate-800">{syncedSOS.driver_name}</span>
+                </div>
+                <div className="flex justify-between text-xs font-bold border-b border-slate-200 pb-1.5 mb-1.5">
+                  <span className="text-slate-500">Assigned Route:</span>
+                  <span className="text-slate-800 uppercase">{syncedSOS.route}</span>
+                </div>
+                <div className="flex justify-between text-xs font-bold border-b border-slate-200 pb-1.5 mb-1.5">
+                  <span className="text-slate-500">Reported Speed:</span>
+                  <span className="text-slate-800">{syncedSOS.speed} km/h</span>
+                </div>
+                <div className="flex justify-between text-xs font-bold border-b border-slate-200 pb-1.5 mb-1.5">
+                  <span className="text-slate-500">Emergency Type:</span>
+                  <span className="text-rose-600 uppercase font-black">{syncedSOS.emergency_type}</span>
+                </div>
+                <div className="flex justify-between text-xs font-bold">
+                  <span className="text-slate-500">Coordinates:</span>
+                  <span className="font-mono text-slate-800">{syncedSOS.latitude.toFixed(4)}, {syncedSOS.longitude.toFixed(4)}</span>
+                </div>
+              </div>
+              
+              {/* Nearest Police Station Details */}
+              {syncedSOS.police_station && (
+                <div className="bg-blue-50/45 border border-blue-100 p-4 rounded-xl flex flex-col gap-2">
+                  <h4 className="text-[10px] font-black text-blue-700 uppercase tracking-widest mb-1">
+                    Nearest Police Station Identified
+                  </h4>
+                  <div className="text-xs font-bold text-slate-800">
+                    <div>{syncedSOS.police_station.name}</div>
+                    <div className="text-[10px] text-slate-500 mt-1 leading-normal font-medium">{syncedSOS.police_station.address}</div>
+                    <div className="flex gap-4 mt-2 text-[10px] text-blue-650 font-extrabold uppercase">
+                      <span>Phone: {syncedSOS.police_station.phone}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Vertical Audit Timeline */}
+              <div className="flex flex-col gap-3">
+                <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                  Incident Response Timeline
+                </h4>
+                <div className="relative border-l border-slate-200 ml-2.5 pl-6 flex flex-col gap-5 text-xs font-bold text-slate-700">
+                  {syncedSOS.timeline && syncedSOS.timeline.map((event, idx) => (
+                    <div key={idx} className="relative">
+                      {/* Timeline dot */}
+                      <span className="absolute -left-[31px] top-0.5 w-2.5 h-2.5 bg-slate-900 border-2 border-white rounded-full" />
+                      <div className="flex justify-between items-baseline mb-0.5">
+                        <span className="text-slate-900">{event.action}</span>
+                        <span className="text-[10px] text-slate-400 font-mono font-medium">{event.time}</span>
+                      </div>
+                      <p className="text-[10px] text-slate-450 font-semibold leading-normal italic">
+                        {event.remarks || `Action performed by ${event.performed_by}`}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
+            </div>
+            
+            {/* Footer Control Panel */}
+            <div className="bg-slate-50 border-t border-slate-200 p-5 flex flex-col gap-3">
+              {error && <div className="text-[10px] text-rose-600 font-bold uppercase">{error}</div>}
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    console.log(`Mock Call Dialed helpline for driver ${syncedSOS.driver_name}`);
+                    triggerNotification(`[Mock Call] Contacting driver ${syncedSOS.driver_name} at TN38AB2024 helpline...`, "info");
+                  }}
+                  className="flex-1 py-3 border border-slate-350 bg-white hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-bold transition-smooth uppercase tracking-wide cursor-pointer"
+                >
+                  Call Driver Helpline
+                </button>
+                
+                {(syncedSOS.status === 'CREATED' || syncedSOS.status === 'POLICE_NOTIFIED') && (
+                  <button
+                    onClick={() => {
+                      acknowledgeSOSAlert(syncedSOS.sos_id)
+                        .then(() => {
+                          triggerNotification(`Acknowledged SOS ${syncedSOS.sos_id} successfully. Parents warned.`, "success");
+                        })
+                        .catch(err => setError(err.message));
+                    }}
+                    className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-smooth uppercase tracking-wide shadow-sm cursor-pointer"
+                  >
+                    Acknowledge SOS
+                  </button>
+                )}
+              </div>
+              
+              {syncedSOS.status === 'ADMIN_ACKNOWLEDGED' && (
+                <div className="flex flex-col gap-2 border-t border-slate-200 pt-3">
+                  <label className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest block">
+                    Incident Resolution Remarks (Required)
+                  </label>
+                  <textarea
+                    value={remarks}
+                    onChange={(e) => { setRemarks(e.target.value); setError(""); }}
+                    placeholder="Enter details on emergency resolution (e.g. medical transport arrived, backup bus dispatched)..."
+                    className="w-full p-2.5 bg-white border border-slate-250 text-xs font-bold rounded-lg focus:outline-none focus:border-blue-500"
+                    rows={3}
+                  />
+                  <button
+                    onClick={() => {
+                      if (!remarks.trim()) {
+                        setError("Resolution remarks are required.");
+                        return;
+                      }
+                      resolveSOSAlert(syncedSOS.sos_id, remarks)
+                        .then(() => {
+                          triggerNotification(`Incident ${syncedSOS.sos_id} successfully resolved.`, "success");
+                          setSelectedSOS(null);
+                          setRemarks("");
+                        })
+                        .catch(err => setError(err.message));
+                    }}
+                    className="w-full py-3.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-smooth uppercase tracking-wide shadow-sm cursor-pointer"
+                  >
+                    Resolve Incident
+                  </button>
+                </div>
+              )}
+              
+            </div>
+            
+          </div>
+        </div>
+      )}
 
     </div>
   );

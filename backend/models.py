@@ -16,6 +16,47 @@ class Account(db.Model):
     busRoute = db.Column(db.String(100), nullable=True)
     phone = db.Column(db.String(50), nullable=True)
     
+    # New provisioning columns
+    must_change_password = db.Column(db.Boolean, default=True, server_default='1')
+    last_password_change = db.Column(db.DateTime, nullable=True)
+    account_status = db.Column(db.String(50), default='ACTIVE', server_default='ACTIVE')
+    
+    # Advanced security and auditing columns
+    password_version = db.Column(db.Integer, default=1, server_default='1')
+    failed_login_attempts = db.Column(db.Integer, default=0, server_default='0')
+    last_login = db.Column(db.DateTime, nullable=True)
+    created_by = db.Column(db.String(100), nullable=True)
+    lock_time = db.Column(db.DateTime, nullable=True)
+    
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+    updated_at = db.Column(db.DateTime, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
+
+class Route(db.Model):
+    __tablename__ = 'routes'
+    id = db.Column(db.String(255), primary_key=True)
+    name = db.Column(db.String(255), nullable=False)
+    start_location = db.Column(db.String(255), nullable=True)
+    end_location = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+    updated_at = db.Column(db.DateTime, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
+
+class Stop(db.Model):
+    __tablename__ = 'stops'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    name = db.Column(db.String(255), nullable=False)
+    latitude = db.Column(db.Float, nullable=False)
+    longitude = db.Column(db.Float, nullable=False)
+    address = db.Column(db.String(255), nullable=True)
+    route_id = db.Column(db.String(255), db.ForeignKey('routes.id', ondelete='SET NULL'), nullable=True)
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+    updated_at = db.Column(db.DateTime, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
+
+class RouteStop(db.Model):
+    __tablename__ = 'route_stops'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    route_id = db.Column(db.String(255), db.ForeignKey('routes.id', ondelete='CASCADE'), nullable=False)
+    stop_id = db.Column(db.Integer, db.ForeignKey('stops.id', ondelete='CASCADE'), nullable=False)
+    stop_order = db.Column(db.Integer, nullable=False)
     created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
     updated_at = db.Column(db.DateTime, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
 
@@ -37,6 +78,11 @@ class Bus(db.Model):
     latitude = db.Column(db.Float, nullable=True)
     longitude = db.Column(db.Float, nullable=True)
     deviation = db.Column(db.Integer, default=0)
+    
+    # Automatic Bus Assignment columns
+    capacity = db.Column(db.Integer, nullable=False, default=40, server_default='40')
+    route_id = db.Column(db.String(255), db.ForeignKey('routes.id', ondelete='SET NULL'), nullable=True)
+    is_active = db.Column(db.Boolean, default=True, server_default='1', nullable=False)
     
     created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
     updated_at = db.Column(db.DateTime, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
@@ -65,8 +111,42 @@ class Student(db.Model):
     address = db.Column(db.String(255), nullable=True)
     medicalNotes = db.Column(db.String(255), nullable=True)
     
+    # New registration and QR management columns
+    student_id = db.Column(db.String(50), unique=True, nullable=True)
+    admission_no = db.Column(db.String(50), unique=True, nullable=True)
+    gender = db.Column(db.String(50), nullable=True)
+    dob = db.Column(db.String(50), nullable=True)
+    section = db.Column(db.String(50), nullable=True)
+    photo = db.Column(db.String(255), nullable=True)
+    parent_id = db.Column(db.Integer, db.ForeignKey('parents.id', ondelete='SET NULL'), nullable=True)
+    route_id = db.Column(db.String(50), nullable=True)
+    pickup_stop_id = db.Column(db.String(50), nullable=True)
+    qr_code_path = db.Column(db.String(255), nullable=True)
+    qr_token = db.Column(db.String(255), unique=True, nullable=True)
+    student_status = db.Column(db.String(50), default='ACTIVE')
+    school_email = db.Column(db.String(100), unique=True, nullable=True)
+    
+    # Automatic Bus Assignment columns
+    pickup_distance = db.Column(db.Float, nullable=True)
+    assignment_status = db.Column(db.String(50), default='PENDING', server_default='PENDING')
+    assigned_at = db.Column(db.DateTime, nullable=True)
+    
+    # ID Card columns
+    id_card_front_path = db.Column(db.String(255), nullable=True)
+    id_card_back_path = db.Column(db.String(255), nullable=True)
+    id_card_pdf_path = db.Column(db.String(255), nullable=True)
+    id_card_generated_at = db.Column(db.DateTime, nullable=True)
+    id_card_version = db.Column(db.Integer, default=1, nullable=True)
+    id_card_status = db.Column(db.String(50), default='ACTIVE', nullable=True)
+    
     created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
     updated_at = db.Column(db.DateTime, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
+
+    __table_args__ = (
+        db.Index('idx_students_parent_id', 'parent_id'),
+        db.Index('idx_students_busId', 'busId'),
+        db.Index('idx_students_student_status', 'student_status'),
+    )
 
 class Alert(db.Model):
     __tablename__ = 'alerts'
@@ -137,42 +217,6 @@ class DriverComplaint(db.Model):
 # STAGE 2 FEATURE EXPANSION MODELS (PLACEHOLDERS)
 # ==========================================================
 """
-class Parent(db.Model):
-    __tablename__ = 'parents'
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    name = db.Column(db.String(255), nullable=False)
-    phone = db.Column(db.String(50), nullable=False)
-    username = db.Column(db.String(255), unique=True, nullable=False)
-    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
-    updated_at = db.Column(db.DateTime, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
-
-class Stop(db.Model):
-    __tablename__ = 'stops'
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    name = db.Column(db.String(255), nullable=False)
-    latitude = db.Column(db.Float, nullable=False)
-    longitude = db.Column(db.Float, nullable=False)
-    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
-    updated_at = db.Column(db.DateTime, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
-
-class Route(db.Model):
-    __tablename__ = 'routes'
-    id = db.Column(db.String(255), primary_key=True)
-    name = db.Column(db.String(255), nullable=False)
-    start_location = db.Column(db.String(255), nullable=True)
-    end_location = db.Column(db.String(255), nullable=True)
-    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
-    updated_at = db.Column(db.DateTime, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
-
-class RouteStop(db.Model):
-    __tablename__ = 'route_stops'
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    route_id = db.Column(db.String(255), db.ForeignKey('routes.id', ondelete='CASCADE'), nullable=False)
-    stop_id = db.Column(db.Integer, db.ForeignKey('stops.id', ondelete='CASCADE'), nullable=False)
-    stop_order = db.Column(db.Integer, nullable=False)
-    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
-    updated_at = db.Column(db.DateTime, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
-
 class StudentStopMapping(db.Model):
     __tablename__ = 'student_stop_mapping'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)

@@ -10,9 +10,9 @@ interface DashboardStatsProps {
 const DashboardStats: React.FC<DashboardStatsProps> = ({ buses, students }) => {
   const totalBuses = buses.length;
   const totalStudents = students.length;
-  const totalRoutes = 3;
-  const totalDrivers = 3;
-  const activeTrips = buses.filter(b => b.status === 'Running').length;
+  const totalRoutes = Array.from(new Set(buses.map(b => b.routeNumber || b.id))).filter(Boolean).length;
+  const totalDrivers = Array.from(new Set(buses.map(b => b.driverName || b.driver))).filter(Boolean).length;
+  const activeTrips = buses.filter(b => b.status === 'Running' || b.status === 'On Route').length;
   
   // Dynamic live count of students who are currently marked "On Board"
   const studentsOnBoard = students.filter(s => s.status === 'On Board').length;

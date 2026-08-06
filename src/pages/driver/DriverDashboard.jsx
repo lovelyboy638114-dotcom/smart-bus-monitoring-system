@@ -1,12 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Compass, Users, MapPin, Play, Square, AlertOctagon, PhoneCall, ShieldAlert, AlertTriangle, Check, BellRing } from 'lucide-react';
 
 const DriverDashboard = () => {
-  const { buses, setBuses, students, triggerNotification = () => {}, driverMessages, setDriverMessages } = useApp();
+  const { 
+    buses, 
+    setBuses, 
+    students, 
+    triggerNotification = () => {}, 
+    driverMessages, 
+    setDriverMessages,
+    activeSOSAlerts = [],
+    triggerSOSAlert
+  } = useApp();
   const [sosType, setSosType] = useState('Breakdown');
-  const [sosActive, setSosActive] = useState(false);
-
+  
+  // Countdown states
+  const [countdown, setCountdown] = useState(false);
+  const [countdownTimer, setCountdownTimer] = useState(5);
+  
   const updateBusTripStatus = (busId, newStatus) => {
     const mappedStatus = newStatus === 'On Route' ? 'Running' : 'Stopped';
     setBuses(prev => prev.map(b => b.id === busId ? { ...b, status: mappedStatus } : b));
@@ -23,12 +35,66 @@ const DriverDashboard = () => {
     mobileUsage: false
   };
 
+  // Find active SOS for this bus
+  const activeAlert = activeSOSAlerts.find(a => a.bus_id === bus.id);
+
+  // Countdown effect
+  useEffect(() => {
+    if (!countdown) return;
+    if (countdownTimer === 0) {
+      setCountdown(false);
+      const payload = {
+        busId: bus.id,
+        latitude: bus.currentLocation ? bus.currentLocation.lat : 10.8801,
+        longitude: bus.currentLocation ? bus.currentLocation.lng : 77.0224,
+        speed: bus.speed || 0,
+        route: bus.route,
+        emergency_type: sosType,
+        driver_id: "driver@happyjourney.ai",
+        driver_name: "Murugan"
+      };
+      triggerSOSAlert(payload)
+        .then(() => {
+          triggerNotification(`🚨 CRITICAL SOS DISPATCHED: Central dispatcher & police station alerted.`, "success");
+        })
+        .catch(err => {
+          triggerNotification(`Failed to send SOS: ${err.message}`, "error");
+        });
+      return;
+    }
+    const timer = setTimeout(() => {
+      setCountdownTimer(prev => prev - 1);
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [countdown, countdownTimer]);
+
+  // Stopwatch elapsed time counter
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  useEffect(() => {
+    if (!activeAlert) {
+      setElapsedSeconds(0);
+      return;
+    }
+    const tick = setInterval(() => {
+      setElapsedSeconds(prev => prev + 1);
+    }, 1000);
+    return () => clearInterval(tick);
+  }, [activeAlert]);
+
+  const formatStopwatch = (s) => {
+    const mins = Math.floor(s / 60);
+    const secs = s % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
   const handleSOSClick = () => {
-    setSosActive(true);
-    triggerNotification(`EMERGENCY SOS: [${sosType}] - Bus 1 (Murugan) - Dispatched to Admin & Nearby Police Station`, "error");
-    setTimeout(() => {
-      setSosActive(false);
-    }, 5000);
+    setCountdown(true);
+    setCountdownTimer(5);
+  };
+
+  const handleCancelSOS = () => {
+    setCountdown(false);
+    triggerNotification("Emergency SOS transmission aborted by driver.", "info");
   };
 
   const handleAcknowledgeMessage = (msgId) => {
@@ -184,55 +250,100 @@ const DriverDashboard = () => {
         <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider mb-2 flex items-center gap-1.5 text-rose-600">
           <AlertTriangle className="w-4.5 h-4.5 text-rose-600 animate-bounce" /> Emergency Assistance SOS
         </h3>
-        <p className="text-[11px] text-slate-400 font-medium leading-relaxed mb-4">
-          Select the emergency type and trigger the SOS alarm to dispatcher and central command:
-        </p>
-
-        {sosActive && (
-          <div className="w-full mb-4 p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs font-extrabold flex flex-col gap-1 items-center">
-            <div className="flex items-center gap-2">
-              <ShieldAlert className="w-4 h-4 text-rose-600 animate-ping" />
-              <span>CRITICAL SOS ALARM DISPATCHED!</span>
+        
+        {activeAlert ? (
+          <div className="w-full text-left bg-slate-50 border border-slate-150 p-4 rounded-xl flex flex-col gap-3">
+            <div className="flex justify-between items-center border-b border-slate-200 pb-2">
+              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                Emergency status timeline
+              </span>
+              <span className="font-mono text-xs font-black text-rose-600 animate-pulse bg-rose-50 px-2 py-0.5 rounded border border-rose-100">
+                ID: {activeAlert.sos_id}
+              </span>
             </div>
-            <p className="text-[10px] text-rose-600 font-bold uppercase tracking-wide">
-              Central Admin notified & nearest Police Station contacted.
+            
+            <div className="flex flex-col gap-2.5 text-xs font-bold text-slate-750">
+              <div className="flex items-center gap-2">
+                <Check className="w-4 h-4 text-emerald-600" />
+                <span>Emergency Signal Dispatched</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Check className="w-4 h-4 text-emerald-600" />
+                <span>Central School Dispatcher Notified</span>
+              </div>
+              <div className="flex items-center gap-2">
+                {activeAlert.status === 'POLICE_NOTIFIED' || activeAlert.status === 'ADMIN_ACKNOWLEDGED' || activeAlert.status === 'RESOLVED' ? (
+                  <Check className="w-4 h-4 text-emerald-600" />
+                ) : (
+                  <span className="w-4 h-4 rounded-full border-2 border-slate-300 animate-spin border-t-rose-600" />
+                )}
+                <span>Nearest Police Station Notified</span>
+              </div>
+              <div className="flex items-center gap-2">
+                {activeAlert.status === 'ADMIN_ACKNOWLEDGED' || activeAlert.status === 'RESOLVED' ? (
+                  <Check className="w-4 h-4 text-emerald-600" />
+                ) : (
+                  <span className="w-4 h-4 rounded-full border-2 border-slate-300 animate-spin border-t-rose-600" />
+                )}
+                <span>Waiting for School Acknowledgement</span>
+              </div>
+            </div>
+            
+            <div className="border-t border-slate-200 pt-2.5 flex justify-between items-center text-[10px] font-extrabold text-slate-500">
+              <span>ELAPSED RESPONDING TIME:</span>
+              <span className="font-mono text-sm text-slate-800 font-black">{formatStopwatch(elapsedSeconds)}</span>
+            </div>
+          </div>
+        ) : countdown ? (
+          <div className="w-full p-4 bg-rose-50 border border-rose-200 rounded-xl flex flex-col items-center gap-4 text-center">
+            <ShieldAlert className="w-8 h-8 text-rose-600 animate-bounce" />
+            <div>
+              <h4 className="text-sm font-black text-rose-800 uppercase">Emergency Dispatch Countdown</h4>
+              <p className="text-[10px] text-rose-600 font-bold mt-1">
+                Transmitting SOS alert automatically in <span className="text-xs font-mono font-black">{countdownTimer}</span> seconds...
+              </p>
+            </div>
+            <button
+              onClick={handleCancelSOS}
+              className="px-6 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold text-xs uppercase tracking-wide transition-smooth shadow-sm"
+            >
+              Abrupt / Cancel SOS
+            </button>
+          </div>
+        ) : (
+          <div className="w-full flex flex-col gap-4 items-center">
+            <p className="text-[11px] text-slate-400 font-medium leading-relaxed">
+              Select the emergency type and trigger the SOS alarm to dispatcher and central command:
             </p>
+            
+            <div className="w-full text-left">
+              <label className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest block mb-1">
+                Select Emergency Type
+              </label>
+              <select
+                value={sosType}
+                onChange={(e) => setSosType(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:border-blue-500 bg-white"
+              >
+                <option value="Breakdown">Mechanical Breakdown / Engine Failure</option>
+                <option value="Accident">Accident / Collision</option>
+                <option value="Medical">Medical Emergency Onboard</option>
+                <option value="Traffic">Severe Traffic Congestion / Roadblock</option>
+                <option value="Other">Other Critical Situation</option>
+              </select>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleSOSClick}
+              className="w-28 h-28 rounded-full flex flex-col items-center justify-center text-white font-extrabold uppercase text-[10px] tracking-wider transition-smooth bg-rose-600 hover:bg-rose-700 shadow-lg shadow-rose-600/30 animate-pulse-ring"
+              style={{ animationDuration: '1.5s' }}
+            >
+              <PhoneCall className="w-8 h-8 text-white mb-2" />
+              <span>Trigger SOS</span>
+            </button>
           </div>
         )}
-
-        <div className="w-full flex flex-col gap-4 items-center">
-          <div className="w-full text-left">
-            <label className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest block mb-1">
-              Select Emergency Type
-            </label>
-            <select
-              value={sosType}
-              onChange={(e) => setSosType(e.target.value)}
-              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:border-blue-500 bg-white"
-            >
-              <option value="Breakdown">Mechanical Breakdown / Engine Failure</option>
-              <option value="Accident">Accident / Collision</option>
-              <option value="Medical">Medical Emergency Onboard</option>
-              <option value="Traffic">Severe Traffic Congestion / Roadblock</option>
-              <option value="Other">Other Critical Situation</option>
-            </select>
-          </div>
-
-          <button
-            type="button"
-            onClick={handleSOSClick}
-            disabled={sosActive}
-            className={`w-28 h-28 rounded-full flex flex-col items-center justify-center text-white font-extrabold uppercase text-[10px] tracking-wider transition-smooth ${
-              sosActive 
-                ? 'bg-rose-500/30 border border-rose-300 text-rose-600 animate-pulse'
-                : 'bg-rose-600 hover:bg-rose-700 shadow-lg shadow-rose-600/30 animate-pulse-ring'
-            }`}
-            style={{ animationDuration: '1.5s' }}
-          >
-            <PhoneCall className="w-8 h-8 text-white mb-2" />
-            <span>{sosActive ? 'Alert Sent' : 'Trigger SOS'}</span>
-          </button>
-        </div>
       </div>
 
       {/* Help helpline contacts */}

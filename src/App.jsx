@@ -23,9 +23,11 @@ import DriverSafety from './pages/driver/DriverSafety';
 // Parent view components
 import ParentDashboard from './pages/parent/ParentDashboard';
 import ParentTimeline from './pages/parent/ParentTimeline';
+import ChildIDCardPage from './pages/parent/ChildIDCardPage';
 
 // Student view components
 import StudentDashboard from './pages/student/StudentDashboard';
+import StudentIDCardPage from './pages/student/StudentIDCardPage';
 
 // Layout wrapper for Parent, Driver, Student dashboards (legacy sidebar/navbar)
 const DashboardLayout = () => {
@@ -87,12 +89,14 @@ function App() {
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<ParentDashboard />} />
             <Route path="timeline" element={<ParentTimeline />} />
+            <Route path="id-card" element={<ChildIDCardPage />} />
           </Route>
 
           {/* Student routes group */}
           <Route path="/student" element={<DashboardLayout />}>
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<StudentDashboard />} />
+            <Route path="id-card" element={<StudentIDCardPage />} />
           </Route>
 
           {/* Default redirect fallback */}

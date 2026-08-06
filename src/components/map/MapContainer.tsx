@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react';
-import { MapContainer as LeafletMapContainer, TileLayer, useMap, useMapEvents } from 'react-leaflet';
+import { MapContainer as LeafletMapContainer, TileLayer, useMap, useMapEvents, Marker, Circle, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { useApp } from '../../context/AppContext';
 import { Bus, Coordinate } from '../../types';
 import { SCHOOL_LOCATION } from '../../data/mockData';
 import { RouteLayer } from './RouteLayer';
@@ -33,6 +34,7 @@ const MapController: React.FC<{
   buses: Bus[];
   onMapStateChange: (zoom: number, center: L.LatLng) => void;
   setCameraMessage: (msg: string | null) => void;
+  activeSOSAlerts: any[];
 }> = ({
   boundsPoints,
   selectedBusId,
@@ -42,10 +44,23 @@ const MapController: React.FC<{
   buses,
   onMapStateChange,
   setCameraMessage,
+  activeSOSAlerts,
 }) => {
   const map = useMap();
   const isInitialLoadedRef = useRef<boolean>(false);
   const prevSelectedBusIdRef = useRef<string | null>(null);
+  const centeredAlertsRef = useRef<Record<string, boolean>>({});
+
+  // Focus zoom map exactly once on new active alert
+  useEffect(() => {
+    const uncentered = activeSOSAlerts.find((a) => !centeredAlertsRef.current[a.sos_id]);
+    if (uncentered) {
+      centeredAlertsRef.current[uncentered.sos_id] = true;
+      map.setView([uncentered.latitude, uncentered.longitude], 15, { animate: true });
+      setCameraMessage(`🚨 Map focused on emergency alert: ${uncentered.sos_id}`);
+      setTimeout(() => setCameraMessage(null), 3000);
+    }
+  }, [activeSOSAlerts, map]);
 
   // Capture user interactions and map state changes
   useMapEvents({
@@ -126,6 +141,7 @@ const MapController: React.FC<{
 };
 
 export const MapContainer: React.FC<MapContainerProps> = ({ buses, selectedBusId }) => {
+  const { activeSOSAlerts = [] } = useApp();
   const normalizedSelectedId = selectedBusId === 'all' ? null : selectedBusId;
 
   // Local HUD panel and camera states
@@ -265,7 +281,55 @@ export const MapContainer: React.FC<MapContainerProps> = ({ buses, selectedBusId
           buses={buses}
           onMapStateChange={handleMapStateChange}
           setCameraMessage={setCameraMessage}
+          activeSOSAlerts={activeSOSAlerts}
         />
+
+        {/* Render Active Emergency SOS Overlays */}
+        {activeSOSAlerts.map((sos) => {
+          const emergencyIcon = L.divIcon({
+            className: 'emergency-marker-container',
+            html: `
+              <div class="relative w-8 h-8 flex items-center justify-center" style="transform: translate(-4px, -4px)">
+                <span class="absolute w-8 h-8 rounded-full bg-red-500/40 border border-red-500 animate-ping"></span>
+                <span class="absolute w-3 h-3 rounded-full bg-red-650 border border-white"></span>
+              </div>
+            `,
+            iconSize: [32, 32],
+            iconAnchor: [16, 16]
+          });
+          
+          return (
+            <React.Fragment key={sos.sos_id}>
+              {/* Pulsing red Marker */}
+              <Marker position={[sos.latitude, sos.longitude]} icon={emergencyIcon}>
+                <Popup>
+                  <div className="font-sans text-xs p-1 text-slate-800">
+                    <h5 className="font-black text-rose-650 uppercase">🚨 EMERGENCY SOS</h5>
+                    <div className="font-bold mt-1 text-[10px] space-y-0.5">
+                      <div>ID: <span className="font-mono">{sos.sos_id}</span></div>
+                      <div>Bus: {sos.bus_id}</div>
+                      <div>Type: {sos.emergency_type}</div>
+                      <div>Speed: {sos.speed} km/h</div>
+                      <div>Time: {sos.time}</div>
+                    </div>
+                  </div>
+                </Popup>
+              </Marker>
+              
+              {/* Geofence emergency radius circle (500m) */}
+              <Circle
+                center={[sos.latitude, sos.longitude]}
+                radius={500}
+                pathOptions={{
+                  color: '#ef4444',
+                  fillColor: '#ef4444',
+                  fillOpacity: 0.15,
+                  dashArray: '5, 5'
+                }}
+              />
+            </React.Fragment>
+          );
+        })}
 
         {/* Overlay Layers */}
         {buses.map((busItem) => {

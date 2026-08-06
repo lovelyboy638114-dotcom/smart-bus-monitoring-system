@@ -1,7 +1,7 @@
 import React from 'react';
 import { 
   LayoutDashboard, Map, Route, Users, ShieldAlert, 
-  Bell, FileText, Settings, Bus
+  Bell, FileText, Settings, Bus, AlertOctagon
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -18,6 +18,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
     { id: 'drivers', label: 'Drivers', icon: ShieldAlert },
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'reports', label: 'Reports', icon: FileText },
+    { id: 'sosHistory', label: 'Emergency History', icon: AlertOctagon },
     { id: 'settings', label: 'Settings', icon: Settings }
   ];
 

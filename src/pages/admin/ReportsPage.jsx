@@ -4,12 +4,15 @@ import {
   ResponsiveContainer, AreaChart, Area, BarChart, Bar, 
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell 
 } from 'recharts';
-import { BarChart3, TrendingUp, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { BarChart3, TrendingUp, AlertTriangle, ShieldCheck, UserCheck, Navigation, Percent, MapPin, AlertCircle } from 'lucide-react';
 
 const ReportsPage = () => {
-  const { driverBehavior } = useApp();
+  const { driverBehavior, students = [], buses = [] } = useApp();
 
-  // Mock data for safety score weekly distributions
+  // safety score weekly distributions mapping
+  const safetyScore = (driverBehavior && typeof driverBehavior.safetyScore === 'number') ? driverBehavior.safetyScore : 95;
+  const isDrowsy = driverBehavior ? Boolean(driverBehavior.drowsiness) : false;
+
   const weeklySafetyData = [
     { name: 'Mon', score: 88, violations: 1 },
     { name: 'Tue', score: 85, violations: 2 },
@@ -17,7 +20,7 @@ const ReportsPage = () => {
     { name: 'Thu', score: 87, violations: 1 },
     { name: 'Fri', score: 89, violations: 1 },
     { name: 'Sat', score: 90, violations: 0 },
-    { name: 'Sun', score: driverBehavior.safetyScore, violations: driverBehavior.drowsiness ? 2 : 0 }
+    { name: 'Sun', score: safetyScore, violations: isDrowsy ? 2 : 0 }
   ];
 
   // Mock data for alert category ratios
@@ -36,6 +39,21 @@ const ReportsPage = () => {
     { name: 'Week 4', rate: 93 }
   ];
 
+  // Bus assignment analytics calculations
+  const autoAssigned = students.filter(s => s.assignment_status === 'ASSIGNED').length;
+  const pendingAssigned = students.filter(s => s.assignment_status === 'BUS_PENDING').length;
+  const totalAuto = autoAssigned + pendingAssigned;
+  const successRate = totalAuto > 0 ? Math.round((autoAssigned / totalAuto) * 100) : 100;
+  
+  const assignedStudents = students.filter(s => s.assignment_status === 'ASSIGNED' && s.pickup_distance !== undefined && s.pickup_distance !== null);
+  const avgDistance = assignedStudents.length > 0 ? Math.round(assignedStudents.reduce((sum, s) => sum + (s.pickup_distance || 0), 0) / assignedStudents.length) : 0;
+  
+  const activeBusesCount = buses.length;
+  const totalCapacity = activeBusesCount * 40;
+  const totalAssigned = students.filter(s => s.assignedBus && s.status !== 'BUS_PENDING').length;
+  const occupancyPercent = totalCapacity > 0 ? Math.round((totalAssigned / totalCapacity) * 100) : 0;
+  const remainingCapacity = Math.max(0, totalCapacity - totalAssigned);
+
   return (
     <div className="flex flex-col gap-6 p-6">
       
@@ -45,6 +63,56 @@ const ReportsPage = () => {
         <p className="text-xs text-slate-500 font-medium mt-0.5">
           Machine Learning telemetry reports, anomaly logs, and fleet performance charts.
         </p>
+      </div>
+
+      {/* Automatic Bus Assignment KPI Dashboard */}
+      <div>
+        <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider mb-3">Automatic Bus Assignment & Routing Analytics</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="bg-white border border-slate-200/80 p-4 rounded-2xl shadow-sm flex flex-col justify-between min-h-[90px] bg-gradient-to-br from-indigo-500/5 to-purple-500/5">
+            <div className="flex items-center justify-between">
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block leading-none">Auto Assignment Rate</span>
+              <Percent className="w-3.5 h-3.5 text-indigo-600" />
+            </div>
+            <div className="mt-2">
+              <h3 className="text-lg font-black text-slate-800 leading-none">{successRate}%</h3>
+              <span className="text-[8px] text-slate-500 font-extrabold uppercase tracking-widest block mt-1">Success Rate ({autoAssigned}/{totalAuto})</span>
+            </div>
+          </div>
+          
+          <div className="bg-white border border-slate-200/80 p-4 rounded-2xl shadow-sm flex flex-col justify-between min-h-[90px] bg-gradient-to-br from-amber-500/5 to-orange-500/5">
+            <div className="flex items-center justify-between">
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block leading-none">Pending Assignments</span>
+              <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
+            </div>
+            <div className="mt-2">
+              <h3 className="text-lg font-black text-slate-800 leading-none">{pendingAssigned}</h3>
+              <span className="text-[8px] text-slate-500 font-extrabold uppercase tracking-widest block mt-1">Needs Admin Review</span>
+            </div>
+          </div>
+
+          <div className="bg-white border border-slate-200/80 p-4 rounded-2xl shadow-sm flex flex-col justify-between min-h-[90px] bg-gradient-to-br from-blue-500/5 to-cyan-500/5">
+            <div className="flex items-center justify-between">
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block leading-none">Avg Pickup Distance</span>
+              <MapPin className="w-3.5 h-3.5 text-blue-600" />
+            </div>
+            <div className="mt-2">
+              <h3 className="text-lg font-black text-slate-800 leading-none">{avgDistance}m</h3>
+              <span className="text-[8px] text-slate-500 font-extrabold uppercase tracking-widest block mt-1">Student-to-Stop</span>
+            </div>
+          </div>
+
+          <div className="bg-white border border-slate-200/80 p-4 rounded-2xl shadow-sm flex flex-col justify-between min-h-[90px] bg-gradient-to-br from-emerald-500/5 to-teal-500/5">
+            <div className="flex items-center justify-between">
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block leading-none">Bus Occupancy Rate</span>
+              <UserCheck className="w-3.5 h-3.5 text-emerald-600" />
+            </div>
+            <div className="mt-2">
+              <h3 className="text-lg font-black text-slate-800 leading-none">{occupancyPercent}%</h3>
+              <span className="text-[8px] text-slate-500 font-extrabold uppercase tracking-widest block mt-1">{totalAssigned} / {totalCapacity} seats ({remainingCapacity} remaining)</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Isolation Forest ML Explanation Panel */}

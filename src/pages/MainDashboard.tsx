@@ -1,17 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar.tsx';
+import EmergencyHistory from './admin/EmergencyHistory.tsx';
 import TopNavbar from '../components/TopNavbar.tsx';
 import LeafletMap from '../components/LeafletMap.tsx';
 import DashboardStats from '../components/DashboardStats.tsx';
 import NotificationPanel from '../components/NotificationPanel.tsx';
 import AIFeatures from '../components/AIFeatures.tsx';
 import { useApp } from '../context/AppContext';
-import { 
-  busesList as initialBuses, 
-  studentsList as initialStudents, 
-  driversList, 
-  initialNotifications 
-} from '../data/mockData';
+import { SCHOOL_LOCATION } from '../data/mockData';
 import { Bus, Student, SystemNotification } from '../types';
 import { 
   Bus as BusIcon, ShieldAlert, Users, Compass, 
@@ -23,16 +19,16 @@ const MainDashboard: React.FC = () => {
     notifications, 
     triggerNotification, 
     clearNotification, 
-    clearAllNotifications 
+    clearAllNotifications,
+    students,
+    setStudents,
+    buses,
+    updateBusTripStatus
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [qrModalStudent, setQrModalStudent] = useState<Student | null>(null);
-  
-  // State lists
-  const [buses, setBuses] = useState<Bus[]>(initialBuses);
-  const [students, setStudents] = useState<Student[]>(initialStudents);
 
   // Selected entities
   const [selectedBusId, setSelectedBusId] = useState<string | null>(null);
@@ -63,69 +59,7 @@ const MainDashboard: React.FC = () => {
     clearAllNotifications();
   };
 
-  // 2. Bus Animation Loop: continuously move buses along their routes
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setBuses((prevBuses) =>
-        prevBuses.map((bus) => {
-          if (bus.status !== 'Running') return bus;
-
-          const nextIdx = (bus.currentStopIndex + 1) % bus.path.length;
-          
-          // Trigger stop arrival warning if near a stop coordinates index
-          // Total steps per segment is 40. Stops are every 40 steps.
-          if (nextIdx % 40 === 0 && nextIdx > 0) {
-            const stopIdx = Math.floor(nextIdx / 40);
-            const stopName = bus.stops[stopIdx]?.name || "Destination";
-            handleTriggerAlert(`${bus.id} reached stop: ${stopName}`, "info");
-
-            // Boarding/Dropping updates logic
-            setStudents((prevStudents) =>
-              prevStudents.map((stud) => {
-                if (stud.assignedBus === bus.id && stud.pickupStop === stopName) {
-                  return { ...stud, status: 'On Board', attendance: 'Present' };
-                }
-                if (stopName.includes("College") && stud.assignedBus === bus.id) {
-                  return { ...stud, status: 'Dropped' };
-                }
-                return stud;
-              })
-            );
-          }
-
-          // Calculate Speed changes
-          let dynamicSpeed = bus.speed + Math.floor(Math.random() * 5) - 2;
-          if (dynamicSpeed < 20) dynamicSpeed = 25;
-          if (dynamicSpeed > 65) dynamicSpeed = 55;
-
-          // If overspeed is toggled
-          if (bus.id === 'Bus 1' && isOverspeeding) {
-            dynamicSpeed = 68;
-          }
-
-          // Calculate ETA
-          const remainingMinutes = Math.max(1, Math.floor((bus.path.length - nextIdx) * 0.15));
-          const etaString = remainingMinutes === 1 ? "1 min" : `${remainingMinutes} mins`;
-
-          return {
-            ...bus,
-            currentStopIndex: nextIdx,
-            speed: dynamicSpeed,
-            eta: etaString,
-            battery: Math.max(5, bus.battery - (nextIdx % 100 === 0 ? 1 : 0))
-          };
-        })
-      );
-    }, 2000);
-
-    return () => clearInterval(interval);
-  }, [isOverspeeding]);
-
-  // Handle bus actions (start, pause, end)
-  const toggleBusStatus = (busId: string, status: 'Running' | 'Stopped') => {
-    setBuses(prev => prev.map(b => b.id === busId ? { ...b, status } : b));
-    handleTriggerAlert(`${busId} status modified to: ${status}`, "info");
-  };
+  // Bus coordinates and statuses are updated in real-time from the backend database state.
 
   // Filter students based on search query
   const filteredStudents = students.filter(s => 
@@ -298,14 +232,14 @@ const MainDashboard: React.FC = () => {
                     <div className="flex gap-2 border-t border-slate-100 pt-3">
                       {b.status === 'Running' ? (
                         <button
-                          onClick={() => toggleBusStatus(b.id, 'Stopped')}
+                          onClick={() => updateBusTripStatus(b.id, 'Stopped')}
                           className="flex-1 py-1.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1"
                         >
                           <Square className="w-3.5 h-3.5 fill-rose-600 stroke-none" /> Stop Bus
                         </button>
                       ) : (
                         <button
-                          onClick={() => toggleBusStatus(b.id, 'Running')}
+                          onClick={() => updateBusTripStatus(b.id, 'Running')}
                           className="flex-1 py-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-250 text-emerald-700 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1"
                         >
                           <Play className="w-3.5 h-3.5 fill-emerald-700 stroke-none" /> Start Route
@@ -380,6 +314,7 @@ const MainDashboard: React.FC = () => {
                         <th className="p-3">Name</th>
                         <th className="p-3">Assigned Bus</th>
                         <th className="p-3">Pickup Stop</th>
+                        <th className="p-3">Distance</th>
                         <th className="p-3">Attendance</th>
                         <th className="p-3">Parent Contact</th>
                         <th className="p-3">Transit Status</th>
@@ -394,12 +329,26 @@ const MainDashboard: React.FC = () => {
                           </td>
                           <td className="p-3 font-mono text-slate-800 font-bold">{stud.id}</td>
                           <td className="p-3 text-slate-900 font-extrabold">{stud.name}</td>
-                          <td className="p-3">
+                          <td className="p-3 flex items-center gap-1.5 pt-4">
                             <span className="px-2 py-0.5 text-[9px] font-black bg-blue-50 text-blue-700 border border-blue-100 rounded-full">
                               {stud.assignedBus}
                             </span>
+                            <span className={`px-1.5 py-0.5 text-[8.5px] font-black rounded uppercase ${
+                              stud.assignment_status === 'ASSIGNED' 
+                                ? 'bg-indigo-50 text-indigo-700 border border-indigo-100'
+                                : stud.assignment_status === 'BUS_PENDING'
+                                ? 'bg-amber-55 text-amber-700 border border-amber-150 animate-pulse'
+                                : 'bg-slate-50 text-slate-600 border border-slate-200'
+                            }`}>
+                              {stud.assignment_status || 'MANUAL'}
+                            </span>
                           </td>
                           <td className="p-3">{stud.pickupStop}</td>
+                          <td className="p-3 font-mono text-[10px] text-slate-550">
+                            {stud.pickup_distance !== undefined && stud.pickup_distance !== null
+                              ? `${Math.round(stud.pickup_distance)}m`
+                              : '--'}
+                          </td>
                           <td className="p-3">
                             <span className={`px-2 py-0.5 text-[9.5px] font-black uppercase rounded ${
                               stud.attendance === 'Present' 
@@ -449,32 +398,43 @@ const MainDashboard: React.FC = () => {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {driversList.map((dr, index) => (
-                  <div key={index} className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col items-center text-center gap-4">
-                    <img src={dr.avatarUrl} alt={dr.name} className="w-16 h-16 rounded-2xl bg-blue-50 border border-blue-150 p-1" />
-                    <div>
-                      <h3 className="text-sm font-black text-slate-800">{dr.name}</h3>
-                      <span className="text-[10px] font-black text-blue-600 block mt-0.5 uppercase tracking-wider">
-                        Assigned: {dr.busNumber}
-                      </span>
-                    </div>
+                {buses.map((busItem, index) => {
+                  const prefix = busItem.driverName ? busItem.driverName.replace(/\s+/g, '').toLowerCase() : '';
+                  const driverPhone = "+91 94432 1000" + (index + 1);
+                  const avatarUrl = `https://api.dicebear.com/7.x/bottts/svg?seed=${busItem.driverName || 'Driver'}`;
 
-                    <div className="w-full space-y-2 border-t border-slate-100 pt-4 text-xs font-semibold text-slate-655 text-left">
-                      <div className="flex justify-between">
-                        <span>Phone:</span>
-                        <span className="font-bold text-slate-800">{dr.phone}</span>
+                  return (
+                    <div key={index} className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col items-center text-center gap-4">
+                      <img src={avatarUrl} alt={busItem.driverName} className="w-16 h-16 rounded-2xl bg-blue-50 border border-blue-150 p-1" />
+                      <div>
+                        <h3 className="text-sm font-black text-slate-800">{busItem.driverName}</h3>
+                        <span className="text-[10px] font-black text-blue-600 block mt-0.5 uppercase tracking-wider">
+                          Assigned: {busItem.id}
+                        </span>
                       </div>
-                      <div className="flex justify-between font-mono">
-                        <span>License No:</span>
-                        <span className="font-bold text-slate-805">{dr.licenseNumber}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Experience:</span>
-                        <span className="font-bold text-slate-800">{dr.experience} Years</span>
+
+                      <div className="w-full space-y-2 border-t border-slate-100 pt-4 text-xs font-semibold text-slate-655 text-left">
+                        <div className="flex justify-between">
+                          <span>Phone:</span>
+                          <span className="font-bold text-slate-800">{driverPhone}</span>
+                        </div>
+                        <div className="flex justify-between font-mono">
+                          <span>License No:</span>
+                          <span className="font-bold text-slate-805">{busItem.driverLicense || "DL-TN38AB2024"}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Experience:</span>
+                          <span className="font-bold text-slate-800">{busItem.driverExperience || 5} Years</span>
+                        </div>
                       </div>
                     </div>
+                  );
+                })}
+                {buses.length === 0 && (
+                  <div className="col-span-3 text-center py-12 text-slate-400 font-medium">
+                    No Drivers Found
                   </div>
-                ))}
+                )}
               </div>
             </div>
           )}
@@ -535,6 +495,11 @@ const MainDashboard: React.FC = () => {
                 </div>
               </div>
             </div>
+          )}
+
+          {/* TAB 7.5: EMERGENCY HISTORY TAB */}
+          {activeTab === 'sosHistory' && (
+            <EmergencyHistory />
           )}
 
           {/* TAB 8: SETTINGS TAB */}

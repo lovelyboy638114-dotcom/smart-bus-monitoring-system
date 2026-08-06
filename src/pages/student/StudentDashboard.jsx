@@ -3,15 +3,35 @@ import { useApp } from '../../context/AppContext';
 import { QrCode, CheckSquare, Sparkles, HeartHandshake, Home, ShieldAlert } from 'lucide-react';
 
 const StudentDashboard = () => {
-  const { students, studentSelfId, updateStudentProfile } = useApp();
+  const { students, updateStudentProfile } = useApp();
 
-  const student = students.find((s) => s.id === studentSelfId) || students[0];
+  const loggedInEmail = localStorage.getItem('safebus_user_username');
+  const student = students.find((s) => s.school_email === loggedInEmail) || students[0] || {
+    id: '',
+    name: 'Student',
+    rollNo: '',
+    class: '',
+    bloodGroup: '',
+    address: '',
+    medicalNotes: '',
+    boarded: false,
+    reachedSchool: false
+  };
 
   // Profile forms states
-  const [bloodGroup, setBloodGroup] = useState(student.bloodGroup || '');
-  const [address, setAddress] = useState(student.address || '');
-  const [medicalNotes, setMedicalNotes] = useState(student.medicalNotes || '');
+  const [bloodGroup, setBloodGroup] = useState('');
+  const [address, setAddress] = useState('');
+  const [medicalNotes, setMedicalNotes] = useState('');
   const [success, setSuccess] = useState(false);
+
+  // Sync state with dynamic student loaded from context API
+  React.useEffect(() => {
+    if (student) {
+      setBloodGroup(student.bloodGroup || '');
+      setAddress(student.address || '');
+      setMedicalNotes(student.medicalNotes || '');
+    }
+  }, [student]);
 
   const handleProfileSubmit = (e) => {
     e.preventDefault();
@@ -43,18 +63,64 @@ const StudentDashboard = () => {
         </span>
         
         {/* Real Dynamic QR Boarding pass */}
-        <div className="p-4 bg-white border border-slate-200 rounded-2xl flex items-center justify-center shadow-md relative group">
-          <img 
-            src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${student.id}`} 
-            alt="Boarding Pass QR"
-            className="w-36 h-36"
-          />
+        <div className="p-4 bg-white border border-slate-200 rounded-2xl flex items-center justify-center shadow-md relative group min-h-[150px]">
+          {student.id ? (
+            <img 
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(
+                `=== SafeBus AI - Student ID ===\nID: ${student.id}\nName: ${student.name}\nRoll No: ${student.rollNo}\nClass: ${student.class || 'Grade 10'}\nStatus: ACTIVE`
+              )}`} 
+              alt="Boarding Pass QR"
+              className="w-36 h-36"
+            />
+          ) : (
+            <div className="w-36 h-36 flex items-center justify-center text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+              Generating pass...
+            </div>
+          )}
         </div>
 
         <h4 className="text-sm font-black text-slate-800 mt-4 leading-none">{student.name}</h4>
         <span className="text-[10px] text-slate-500 font-bold uppercase mt-1.5 tracking-wider">
-          Roll No: #{student.rollNo} | Class {student.class}
+          Roll No: #{student.rollNo} | Class {student.class || 'Grade 10'}
         </span>
+      </div>
+      
+      {/* Route & Stop Details Card */}
+      <div className="bg-white border border-slate-100 p-5 rounded-2xl shadow-soft">
+        <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider mb-4">Transportation Details</h3>
+        
+        <div className="flex flex-col gap-3.5 text-xs font-semibold text-slate-700">
+          <div className="flex justify-between">
+            <span className="text-slate-500">Assigned Bus:</span>
+            <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase border ${
+              student.status === 'BUS_PENDING' || student.assignedBus === 'BUS_PENDING'
+                ? 'bg-amber-50 text-amber-700 border-amber-100'
+                : 'bg-blue-50 text-blue-700 border-blue-150 font-bold'
+            }`}>
+              {student.status === 'BUS_PENDING' || student.assignedBus === 'BUS_PENDING' ? 'PENDING' : student.assignedBus}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-slate-500">Pickup Stop:</span>
+            <span className="font-bold text-slate-800">
+              {student.status === 'BUS_PENDING' || student.assignedBus === 'BUS_PENDING' ? 'PENDING (Calculating)' : student.pickupStop}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-slate-500">Pickup Distance:</span>
+            <span className="font-bold text-indigo-600 font-mono">
+              {student.pickup_distance !== undefined && student.pickup_distance !== null
+                ? `${Math.round(student.pickup_distance)} meters`
+                : 'Manual Assignment / Pending'}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-slate-500">Assignment Method:</span>
+            <span className="font-bold text-slate-600 uppercase text-[9.5px]">
+              {student.assignment_status || 'MANUAL'}
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* Daily Boarding Status Card */}

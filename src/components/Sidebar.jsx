@@ -39,10 +39,12 @@ const Sidebar = () => {
         return [
           { path: '/parent/dashboard', label: 'Live Tracking', icon: Map },
           { path: '/parent/timeline', label: 'Journey Timeline', icon: BarChart3 },
+          { path: '/parent/id-card', label: 'Child ID Card', icon: UserRound },
         ];
       case 'student':
         return [
           { path: '/student/dashboard', label: 'Dashboard & QR', icon: LayoutDashboard },
+          { path: '/student/id-card', label: 'My ID Card', icon: UserRound },
         ];
       default:
         return [];

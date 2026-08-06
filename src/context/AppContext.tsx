@@ -1,11 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { Coordinate, Bus, Student, Stop, SystemNotification } from '../types';
+import { io } from 'socket.io-client';
 import { 
   interpolatePath, 
-  busesList as initialBuses, 
-  studentsList as initialStudents, 
-  driversList, 
-  SCHOOL_LOCATION 
+  SCHOOL_LOCATION,
+  bus1Stops,
+  bus2Stops,
+  bus3Stops
 } from '../data/mockData';
 import { getDistanceKm, checkRouteDeviation, calculateBearing } from '../services/GPSService';
 
@@ -37,6 +38,18 @@ interface AppContextType {
   toggleBusDeviation: (busId: string) => void;
   updateBusTripStatus: (busId: string, status: 'Running' | 'Stopped' | 'Delayed' | 'On Route' | 'Idle') => void;
   toggleBusSOS: (busId: string) => void;
+  
+  // SOS Emergency Fields
+  activeSOSAlerts: any[];
+  sosStatistics: any;
+  triggerSOSAlert: (payload: any) => Promise<any>;
+  acknowledgeSOSAlert: (sosId: string) => Promise<void>;
+  resolveSOSAlert: (sosId: string, remarks: string) => Promise<void>;
+
+  // Driver Behavior & Status
+  driverBehavior: any;
+  backendConnected: boolean;
+  socketConnected: boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -50,7 +63,6 @@ const BUS_SCHEDULES = {
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Authentication & Profile States
-  // Authentication & Profile States with localStorage persistence to prevent refresh loops
   const [userRole, setUserRoleState] = useState<string | null>(() => {
     return localStorage.getItem('safebus_user_role') || null;
   });
@@ -63,12 +75,171 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       localStorage.removeItem('safebus_user_role');
     }
   };
-  const [parentSelfStudentId, setParentSelfStudentId] = useState<string>("ST001");
+  const [parentSelfStudentId, setParentSelfStudentId] = useState<string>("");
 
   // Telematics States
-  const [buses, setBuses] = useState<Bus[]>(initialBuses);
-  const [students, setStudents] = useState<Student[]>(initialStudents);
+  const [buses, setBuses] = useState<Bus[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
   const [notifications, setNotifications] = useState<SystemNotification[]>([]);
+
+  // Driver Behavior & Backend Status States
+  const [driverBehavior, setDriverBehavior] = useState<any>({
+    drowsiness: false,
+    yawning: false,
+    distraction: false,
+    mobileUsage: false,
+    smoking: false,
+    seatbelt: true,
+    safetyScore: 95
+  });
+  const [backendConnected, setBackendConnected] = useState<boolean>(false);
+  const [socketConnected, setSocketConnected] = useState<boolean>(false);
+
+  const mapDbBusToFrontendBus = (dbBus: any, allStudents: Student[]): Bus => {
+    let stops = bus1Stops;
+    let color = "#2563eb"; // Blue
+    let routeNumber = dbBus.route || "R-01 (North Loop)";
+    
+    if (dbBus.id === "TN38CD5678" || dbBus.id === "Bus 2") {
+      stops = bus2Stops;
+      color = "#16a34a"; // Green
+    } else if (dbBus.id === "TN38EP9012" || dbBus.id === "Bus 3") {
+      stops = bus3Stops;
+      color = "#dc2626"; // Red
+    }
+    
+    const path = interpolatePath(stops);
+    const busStudents = allStudents.filter(s => s.assignedBus === dbBus.id || s.assignedBus === (dbBus.id === "TN38AB1234" ? "Bus 1" : dbBus.id === "TN38CD5678" ? "Bus 2" : "Bus 3"));
+
+    return {
+      id: dbBus.id,
+      driverName: dbBus.driver,
+      routeNumber: routeNumber,
+      status: (dbBus.status === "On Route" ? "Running" : dbBus.status) as any || "Stopped",
+      speed: dbBus.speed || 0,
+      eta: dbBus.eta || "--",
+      battery: 92,
+      currentStopIndex: dbBus.currentStopIndex || 0,
+      path: path,
+      stops: stops,
+      color: color,
+      students: busStudents,
+      deviation: Boolean(dbBus.deviation),
+      sos: Boolean(dbBus.sos),
+      currentLocation: dbBus.latitude && dbBus.longitude ? { lat: dbBus.latitude, lng: dbBus.longitude } : undefined,
+      heading: dbBus.heading || 0
+    };
+  };
+
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      try {
+        const studentsRes = await fetch("http://localhost:5000/api/students");
+        const studentsData = await studentsRes.json();
+        
+        let mappedStudents: Student[] = [];
+        if (Array.isArray(studentsData)) {
+          const busIdMapping: Record<string, string> = {
+            "TN38AB1234": "Bus 1",
+            "TN38CD5678": "Bus 2",
+            "TN38EP9012": "Bus 3"
+          };
+          const stopNamesMapping: Record<string, string> = {
+            "1": "Gandhipuram Bus Stand",
+            "2": "RS Puram",
+            "3": "Saibaba Colony",
+            "4": "Vadavalli",
+            "5": "Thudiyalur",
+            "6": "Kavundampalayam",
+            "7": "GN Mills",
+            "8": "Hope College",
+            "9": "Peelamedu",
+            "10": "Singanallur",
+            "11": "Chinniyampalayam",
+            "12": "Neelambur",
+            "13": "Kalapatti",
+            "14": "Saravanampatti",
+            "15": "Ukkadam Bus Stand",
+            "16": "Town Hall",
+            "17": "Podanur",
+            "18": "Sundarapuram",
+            "19": "Kuniyamuthur",
+            "20": "Eachanari",
+            "21": "Madukkarai"
+          };
+
+          mappedStudents = studentsData.map((s: any) => ({
+            id: s.id,
+            name: s.name,
+            rollNo: s.rollNo || s.id,
+            assignedBus: busIdMapping[s.busId] || s.busId || "Bus 1",
+            pickupStop: stopNamesMapping[s.pickup_stop_id] || s.pickup_stop_id || s.address || "Gandhipuram Bus Stand",
+            attendance: s.boarded ? "Present" : (s.status === "Absent" ? "Absent" : "Not Checked In"),
+            parentContact: s.parentPhone || "",
+            parentId: s.parentId,
+            status: s.status || "Waiting",
+            avatarUrl: `https://api.dicebear.com/7.x/adventurer/svg?seed=${s.name}`,
+            bloodGroup: s.bloodGroup || "",
+            address: s.address || "",
+            medicalNotes: s.medicalNotes || "",
+            school_email: s.school_email || "",
+            class: s.class || "Grade 10",
+            id_card_front_path: s.id_card_front_path,
+            id_card_back_path: s.id_card_back_path,
+            id_card_pdf_path: s.id_card_pdf_path,
+            id_card_version: s.id_card_version,
+            id_card_status: s.id_card_status,
+            pickup_distance: s.pickup_distance,
+            assignment_status: s.assignment_status,
+            assigned_at: s.assigned_at
+          }));
+          setStudents(mappedStudents);
+          
+          // Auto-initialize parentSelfStudentId for logged-in parents
+          const pId = localStorage.getItem('safebus_parent_id');
+          const pPhone = localStorage.getItem('safebus_user_phone');
+          const children = mappedStudents.filter(s => {
+            if (pId && s.parentId === Number(pId)) return true;
+            if (pPhone && s.parentContact && s.parentContact.replace(/\s+/g, '') === pPhone.replace(/\s+/g, '')) return true;
+            return false;
+          });
+          if (children.length > 0) {
+            setParentSelfStudentId(children[0].id);
+          }
+        }
+
+        const busesRes = await fetch("http://localhost:5000/api/buses");
+        const busesData = await busesRes.json();
+        if (Array.isArray(busesData)) {
+          setBuses(busesData.map((b: any) => mapDbBusToFrontendBus(b, mappedStudents)));
+        }
+      } catch (err) {
+        console.error("Failed to load initial database records: ", err);
+      }
+    };
+
+    fetchInitialData();
+  }, []);
+
+  useEffect(() => {
+    if (userRole === 'parent' && students.length > 0) {
+      const parentId = localStorage.getItem('safebus_parent_id');
+      const parentPhone = localStorage.getItem('safebus_user_phone');
+      
+      let child = null;
+      if (parentId) {
+        child = students.find(s => s.parentId === Number(parentId));
+      }
+      if (!child && parentPhone) {
+        child = students.find(s => s.parentContact && s.parentContact.replace(/\s+/g, '') === parentPhone.replace(/\s+/g, ''));
+      }
+      
+      if (child) {
+        setParentSelfStudentId(child.id);
+      }
+    }
+  }, [userRole, students]);
+
   const [selectedBusId, setSelectedBusId] = useState<string | null>("all");
   const [isTrackingLive, setIsTrackingLive] = useState<boolean>(false);
   
@@ -82,6 +253,109 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Simulation ref flags to prevent duplicate triggers
   const alertsSentRef = useRef<Record<string, boolean>>({});
+
+  // SOS Emergency Response system states and functions
+  const [activeSOSAlerts, setActiveSOSAlerts] = useState<any[]>([]);
+  const [sosStatistics, setSosStatistics] = useState<any>(null);
+  const socketRef = useRef<any>(null);
+
+  // play dynamic alarm sound using Web Audio Context to bypass file loading requirements
+  const playEmergencyAlarmSound = () => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      const gain = ctx.createGain();
+      
+      osc1.type = 'sawtooth';
+      osc1.frequency.setValueAtTime(600, ctx.currentTime);
+      osc1.frequency.linearRampToValueAtTime(900, ctx.currentTime + 1.0);
+      
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(500, ctx.currentTime);
+      
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 2.0);
+      
+      osc1.connect(gain);
+      osc2.connect(gain);
+      gain.connect(ctx.destination);
+      
+      osc1.start();
+      osc2.start();
+      osc1.stop(ctx.currentTime + 2.0);
+      osc2.stop(ctx.currentTime + 2.0);
+    } catch (e) {
+      console.error("Audio context sound playback restricted: ", e);
+    }
+  };
+
+  const fetchActiveSOS = () => {
+    fetch("http://localhost:5000/api/v1/sos/active")
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setActiveSOSAlerts(data);
+        }
+      })
+      .catch(err => console.error("Active alerts sync failure: ", err));
+  };
+
+  const fetchSOSStats = () => {
+    fetch("http://localhost:5000/api/v1/sos/statistics")
+      .then(res => res.json())
+      .then(data => {
+        setSosStatistics(data);
+      })
+      .catch(err => console.error("Stats sync failure: ", err));
+  };
+
+  const triggerSOSAlert = async (payload: any) => {
+    const res = await fetch("http://localhost:5000/api/v1/sos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || "Failed to trigger emergency SOS.");
+    }
+    fetchActiveSOS();
+    fetchSOSStats();
+    return data.sos;
+  };
+
+  const acknowledgeSOSAlert = async (sosId: string) => {
+    const username = localStorage.getItem("safebus_username") || "Admin Portal";
+    const res = await fetch(`http://localhost:5000/api/v1/sos/${sosId}/acknowledge`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username })
+    });
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.message || "Failed to acknowledge SOS.");
+    }
+    fetchActiveSOS();
+    fetchSOSStats();
+  };
+
+  const resolveSOSAlert = async (sosId: string, remarks: string) => {
+    const username = localStorage.getItem("safebus_username") || "Admin Portal";
+    const res = await fetch(`http://localhost:5000/api/v1/sos/${sosId}/resolve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, remarks })
+    });
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.message || "Failed to resolve SOS.");
+    }
+    fetchActiveSOS();
+    fetchSOSStats();
+  };
 
   // Helper to convert minutes from midnight to formatted AM/PM string
   const formatSimTime = (totalMinutes: number): string => {
@@ -117,18 +391,77 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const resetSimulation = () => {
     setSimMinutes(7 * 60 + 18);
     setSimTime("07:18 AM");
-    setBuses(initialBuses.map(b => ({
-      ...b,
-      status: 'Stopped',
-      currentStopIndex: 0,
-      speed: 0,
-      eta: '--'
-    })));
-    setStudents(initialStudents.map(s => ({
-      ...s,
-      status: 'Waiting',
-      attendance: 'Not Checked In'
-    })));
+    // Fetch fresh copy of students and buses from backend
+    fetch("http://localhost:5000/api/students")
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          const busIdMapping: Record<string, string> = {
+            "TN38AB1234": "Bus 1",
+            "TN38CD5678": "Bus 2",
+            "TN38EP9012": "Bus 3"
+          };
+          const stopNamesMapping: Record<string, string> = {
+            "1": "Gandhipuram Bus Stand",
+            "2": "RS Puram",
+            "3": "Saibaba Colony",
+            "4": "Vadavalli",
+            "5": "Thudiyalur",
+            "6": "Kavundampalayam",
+            "7": "GN Mills",
+            "8": "Hope College",
+            "9": "Peelamedu",
+            "10": "Singanallur",
+            "11": "Chinniyampalayam",
+            "12": "Neelambur",
+            "13": "Kalapatti",
+            "14": "Saravanampatti",
+            "15": "Ukkadam Bus Stand",
+            "16": "Town Hall",
+            "17": "Podanur",
+            "18": "Sundarapuram",
+            "19": "Kuniyamuthur",
+            "20": "Eachanari",
+            "21": "Madukkarai"
+          };
+          const mapped = data.map((s: any) => ({
+            id: s.id,
+            name: s.name,
+            rollNo: s.rollNo || s.id,
+            assignedBus: busIdMapping[s.busId] || s.busId || "Bus 1",
+            pickupStop: stopNamesMapping[s.pickup_stop_id] || s.pickup_stop_id || s.address || "Gandhipuram Bus Stand",
+            attendance: 'Not Checked In',
+            parentContact: s.parentPhone || "",
+            parentId: s.parentId,
+            status: s.status || 'Waiting',
+            avatarUrl: `https://api.dicebear.com/7.x/adventurer/svg?seed=${s.name}`,
+            bloodGroup: s.bloodGroup || "",
+            address: s.address || "",
+            medicalNotes: s.medicalNotes || "",
+            school_email: s.school_email || "",
+            class: s.class || "Grade 10",
+            id_card_front_path: s.id_card_front_path,
+            id_card_back_path: s.id_card_back_path,
+            id_card_pdf_path: s.id_card_pdf_path,
+            id_card_version: s.id_card_version,
+            id_card_status: s.id_card_status,
+            pickup_distance: s.pickup_distance,
+            assignment_status: s.assignment_status,
+            assigned_at: s.assigned_at
+          }));
+          setStudents(mapped);
+
+          fetch("http://localhost:5000/api/buses")
+            .then(res => res.json())
+            .then(busesData => {
+              if (Array.isArray(busesData)) {
+                setBuses(busesData.map((b: any) => mapDbBusToFrontendBus(b, mapped)));
+              }
+            });
+        }
+      })
+      .catch(err => console.error("Failed to fetch students/buses in AppContext reset:", err));
+
     setNotifications([]);
     alertsSentRef.current = {};
     setDriverMessages([]);
@@ -226,152 +559,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => clearInterval(clockInterval);
   }, []);
 
-  // Main Live GPS coordinates simulation tick: runs whenever simMinutes increments
-  useEffect(() => {
-    // Check if all buses are completed
-    const allCompleted = buses.every(b => b.status === 'Stopped' && b.currentStopIndex >= b.path.length - 1);
-    if (allCompleted && simMinutes > 8 * 60 + 12) {
-      // Auto restart after completion
-      resetSimulation();
-      return;
-    }
-
-    setBuses((prevBuses) =>
-      prevBuses.map((bus) => {
-        const schedule = BUS_SCHEDULES[bus.id as keyof typeof BUS_SCHEDULES];
-        if (!schedule) return bus;
-
-        // 1. Check if it's time to start the trip
-        if (bus.status === 'Stopped' && bus.currentStopIndex === 0) {
-          if (simMinutes >= schedule.startMin) {
-            triggerNotification(`🚌 ${bus.id} started route ${bus.routeNumber} (Driver: ${bus.driverName})`, "success");
-            return { ...bus, status: 'Running', speed: 30 };
-          }
-          return bus;
-        }
-
-        if (bus.status !== 'Running') return bus;
-
-        // 2. Pause/Stop Wait logic: if the bus is currently waiting at a stop
-        // Check if current coordinate matches a stop index (every 40 steps is a stop)
-        const isAtStop = bus.currentStopIndex % 40 === 0 && bus.currentStopIndex > 0 && bus.currentStopIndex < bus.path.length - 1;
-        const stopIdx = Math.floor(bus.currentStopIndex / 40);
-        const stop = bus.stops[stopIdx];
-        
-        if (isAtStop && stop) {
-          const stopArrivalKey = `${bus.id}-arrival-${stop.name}`;
-          const stopBoardedKey = `${bus.id}-boarded-${stop.name}`;
-
-          // Trigger Arrival Alert once
-          if (!alertsSentRef.current[stopArrivalKey]) {
-            alertsSentRef.current[stopArrivalKey] = true;
-            triggerNotification(`🚌 ${bus.id} has arrived at ${stop.name}.`, "info");
-            return { ...bus, speed: 0 };
-          }
-
-          // Simulated wait for 5 ticks (10 seconds)
-          // We use alertsSentRef counter for wait time simulation
-          const waitKey = `${bus.id}-wait-ticks-${stop.name}`;
-          const currentTicks = Number(alertsSentRef.current[waitKey] || 0);
-          
-          if (currentTicks < 5) {
-            alertsSentRef.current[waitKey] = (currentTicks + 1) as any;
-            return { ...bus, speed: 0 };
-          }
-
-          // Once wait ticks completed, board students and resume
-          if (!alertsSentRef.current[stopBoardedKey]) {
-            alertsSentRef.current[stopBoardedKey] = true;
-            
-            // Mark students at this stop as Boarded
-            setStudents(prevStudents =>
-              prevStudents.map(s => {
-                if (s.assignedBus === bus.id && s.pickupStop === stop.name) {
-                  const boardTime = formatSimTime(simMinutes);
-                  triggerNotification(`✅ ${s.name} boarded ${bus.id} at ${boardTime}.`, "success");
-                  return { ...s, status: 'On Board', attendance: 'Present' };
-                }
-                return s;
-              })
-            );
-          }
-        }
-
-        // 3. Move bus forward by 1 coordinate index along its path
-        const nextIndex = Math.min(bus.path.length - 1, bus.currentStopIndex + 1);
-        const currentPos = bus.path[nextIndex];
-
-        // Check if reached school
-        if (nextIndex === bus.path.length - 1) {
-          triggerNotification(`🏫 ${bus.id} reached Karpagam College of Engineering at ${formatSimTime(simMinutes)}.`, "success");
-          
-          // Mark all remaining onboard students on this bus as Present/Dropped
-          setStudents(prevStudents =>
-            prevStudents.map(s => {
-              if (s.assignedBus === bus.id && s.status === 'On Board') {
-                return { ...s, status: 'Dropped' };
-              }
-              return s;
-            })
-          );
-
-          return {
-            ...bus,
-            currentStopIndex: nextIndex,
-            status: 'Stopped',
-            speed: 0,
-            eta: 'Arrived'
-          };
-        }
-
-        // 4. Calculate Distance Alerts to NEXT stop (2 km parent-targeted alerts)
-        const nextStopIndexInStops = Math.min(bus.stops.length - 1, Math.ceil(nextIndex / 40));
-        const nextScheduledStop = bus.stops[nextStopIndexInStops];
-        if (nextScheduledStop) {
-          const distToNextStop = getDistanceKm(currentPos, { lat: nextScheduledStop.lat, lng: nextScheduledStop.lng });
-          const alertKey = `${bus.id}-near-2km-${nextScheduledStop.name}`;
-          
-          if (distToNextStop <= 2.0 && distToNextStop > 0.1 && !alertsSentRef.current[alertKey]) {
-            alertsSentRef.current[alertKey] = true;
-            
-            // Find students assigned specifically to this next stop on this bus
-            const targetStudents = students.filter(s => s.assignedBus === bus.id && s.pickupStop === nextScheduledStop.name);
-            const studentNames = targetStudents.map(s => s.name).join(', ');
-            const currentSpeed = bus.speed || 35;
-            const etaMins = Math.max(1, Math.round((distToNextStop / currentSpeed) * 60));
-            
-            if (targetStudents.length > 0) {
-              triggerNotification(
-                `🔔 Parent Notification (${studentNames}): Your child's school bus ${bus.id} is approximately ${distToNextStop.toFixed(1)} km away from ${nextScheduledStop.name} and is expected to arrive in about ${etaMins} minutes.`,
-                "warning"
-              );
-            }
-          }
-        }
-
-        // Calculate speed fluctuation (25–45 km/h)
-        const randomSpeed = Math.floor(Math.random() * (45 - 25 + 1)) + 25;
-
-        // Calculate remaining details
-        const totalPoints = bus.path.length;
-        const remainingPoints = totalPoints - nextIndex;
-        const estMinutesRemaining = Math.ceil(remainingPoints * 0.2); // approx eta minutes
-        const etaSchool = formatSimTime(simMinutes + estMinutesRemaining);
-
-        const prevLoc = bus.path[Math.max(0, nextIndex - 1)];
-        const simulatedHeading = calculateBearing(prevLoc, currentPos);
-
-        return {
-          ...bus,
-          currentLocation: undefined, // Clear live tracking overrides in simulator fallback mode
-          heading: simulatedHeading,
-          currentStopIndex: nextIndex,
-          speed: randomSpeed,
-          eta: etaSchool
-        };
-      })
-    );
-  }, [simMinutes]);
+  // Coordinates movement is driven purely by the backend telemetry processor and live location API polling.
 
   // Poll live driver behavior from Flask server to sync CV warnings
   useEffect(() => {
@@ -385,6 +573,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         })
         .then(data => {
           if (data) {
+            setDriverBehavior(data);
+            setBackendConnected(true);
             offlineLogged = false;
             // Trigger alerts based on CV status
             if (data.drowsiness && !alertsSentRef.current["cv-drowsy-active"]) {
@@ -410,6 +600,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
         })
         .catch(() => {
+          setBackendConnected(false);
           if (!offlineLogged) {
             console.log("[SafeBus Context] Flask API server is currently offline. Operating in local simulation mode.");
             offlineLogged = true;
@@ -507,6 +698,65 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => clearInterval(pollTracking);
   }, [simMinutes]);
 
+  // Socket.IO event registrations effect
+  useEffect(() => {
+    let socket: any;
+    try {
+      socket = io("http://localhost:5000", { transports: ["websocket", "polling"] });
+      socketRef.current = socket;
+      
+      socket.on("connect", () => {
+        console.log("[SocketIO] Connected to backend telemetry gateway.");
+        setSocketConnected(true);
+      });
+      
+      socket.on("disconnect", () => {
+        setSocketConnected(false);
+      });
+      
+      socket.on("sos_alert_received", (newSos: any) => {
+        console.log("[SocketIO] Received new SOS event:", newSos);
+        triggerNotification(`🚨 CRITICAL SOS RECEIVED: ${newSos.bus_id} is reporting: ${newSos.emergency_type}!`, "error");
+        playEmergencyAlarmSound();
+        fetchActiveSOS();
+        fetchSOSStats();
+      });
+      
+      socket.on("sos_alert_acknowledged", (ackData: any) => {
+        console.log("[SocketIO] SOS Acknowledged:", ackData);
+        triggerNotification(`✅ School has acknowledged emergency ${ackData.sos_id}`, "success");
+        fetchActiveSOS();
+        fetchSOSStats();
+      });
+      
+      socket.on("sos_alert_resolved", (resData: any) => {
+        console.log("[SocketIO] SOS Resolved:", resData);
+        triggerNotification(`ℹ️ Emergency ${resData.sos_id} has been resolved: ${resData.remarks}`, "info");
+        fetchActiveSOS();
+        fetchSOSStats();
+      });
+    } catch (e) {
+      console.error("[SocketIO] Init failure: ", e);
+    }
+    
+    return () => {
+      if (socket) socket.disconnect();
+    };
+  }, []);
+
+  // Fallback active alerts periodic check effect
+  useEffect(() => {
+    fetchActiveSOS();
+    fetchSOSStats();
+    
+    const interval = setInterval(() => {
+      fetchActiveSOS();
+      fetchSOSStats();
+    }, 3000);
+    
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <AppContext.Provider
       value={{
@@ -534,7 +784,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setSelectedBusId,
         toggleBusDeviation,
         updateBusTripStatus,
-        toggleBusSOS
+        toggleBusSOS,
+        activeSOSAlerts,
+        sosStatistics,
+        triggerSOSAlert,
+        acknowledgeSOSAlert,
+        resolveSOSAlert,
+        driverBehavior,
+        backendConnected,
+        socketConnected
       }}
     >
       {children}

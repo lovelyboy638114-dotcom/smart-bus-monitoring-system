@@ -33,6 +33,8 @@ db_pass = os.getenv("DB_PASSWORD", "")
 
 # Initialize Flask Application
 app = Flask(__name__)
+if os.environ.get("TESTING") == "true":
+    app.config['TESTING'] = True
 CORS(app)
 
 # Flask-SQLAlchemy configs
@@ -50,8 +52,30 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
 }
 
 # Bind SQLAlchemy models
-from models import db, Account, Bus, Student, Alert, TelemetryLog, DriverMessage, DriverComplaint
+from models import db, Account, Bus, Student, Alert, TelemetryLog, DriverMessage, DriverComplaint, Route, Stop, RouteStop
+from students.models import Parent, StudentSequence, AttendanceLog, StudentEvent, ParentNotificationLog
 db.init_app(app)
+
+# Initialize database migrations
+from flask_migrate import Migrate
+migrate = Migrate(app, db)
+
+# Initialize SOS emergency responder blueprint
+from sos.startup import initialize_sos
+initialize_sos(app)
+
+# Register Students blueprint
+from students.routes import students_bp
+app.register_blueprint(students_bp)
+
+# Register Auth blueprint
+from auth.routes import auth_bp
+app.register_blueprint(auth_bp)
+
+from flask import send_from_directory
+@app.route('/uploads/<path:filename>')
+def serve_uploads(filename):
+    return send_from_directory('uploads', filename)
 
 # Local modules
 from ml_engine import BehaviorAnomalyDetector
@@ -93,13 +117,13 @@ def run_startup_health_check():
             # Inspect database tables
             inspector = db.inspect(db.engine)
             existing_tables = inspector.get_table_names()
-            required_tables = ['accounts', 'buses', 'students', 'alerts', 'telemetry_logs', 'driver_messages', 'driver_complaints']
+            required_tables = ['accounts', 'buses', 'students', 'alerts', 'telemetry_logs', 'driver_messages', 'driver_complaints', 'routes', 'stops', 'route_stops']
             
             missing_tables = [t for t in required_tables if t not in existing_tables]
             if missing_tables:
                 raise Exception(f"Missing core tables: {', '.join(missing_tables)}")
             
-            logger.info("All 7 core tables found. Database initialization is healthy.")
+            logger.info("All core tables found. Database initialization is healthy.")
             return True
         except Exception as e:
             logger.critical(f"Startup Health Check failed: {e}. Aborting server boot.")
@@ -226,41 +250,11 @@ def run_mqtt_listener():
         logger.warning(f"MQTT Broker offline ({e}). Running HTTP REST telematics only.")
 
 # Start MQTT Background Thread
-mqtt_thread = threading.Thread(target=run_mqtt_listener, daemon=True)
-mqtt_thread.start()
+if not app.config.get('TESTING'):
+    mqtt_thread = threading.Thread(target=run_mqtt_listener, daemon=True)
+    mqtt_thread.start()
 
 # ==================== FLASK API ROUTES ====================
-
-@app.route('/api/login', methods=['POST'])
-def login():
-    data = request.json
-    username = data.get('username')
-    password = data.get('password')
-    role = data.get('role')
-    
-    try:
-        account = db.session.query(Account).filter(
-            Account.username == username,
-            Account.role == role
-        ).first()
-        
-        if account and check_password_hash(account.password, password):
-            return jsonify({
-                "status": "success",
-                "user": {
-                    "username": account.username,
-                    "fullName": account.fullName,
-                    "role": account.role,
-                    "licenseNo": account.licenseNo,
-                    "experienceYears": account.experienceYears,
-                    "busRoute": account.busRoute
-                }
-            })
-        else:
-            return jsonify({"status": "error", "message": "Invalid username or password"}), 401
-    except Exception as e:
-        logger.error(f"Login database fetch failure: {e}")
-        return jsonify({"status": "error", "message": "Database query error"}), 500
 
 @app.route('/api/register', methods=['POST'])
 def register():
@@ -383,9 +377,21 @@ def get_students():
                 "status": row.status,
                 "parentName": row.parentName,
                 "parentPhone": row.parentPhone,
+                "parentId": row.parent_id,
                 "bloodGroup": row.bloodGroup,
                 "address": row.address,
-                "medicalNotes": row.medicalNotes
+                "medicalNotes": row.medicalNotes,
+                "school_email": row.school_email,
+                "id_card_front_path": row.id_card_front_path,
+                "id_card_back_path": row.id_card_back_path,
+                "id_card_pdf_path": row.id_card_pdf_path,
+                "id_card_version": row.id_card_version,
+                "id_card_status": row.id_card_status,
+                "pickup_stop_id": row.pickup_stop_id,
+                "route_id": row.route_id,
+                "pickup_distance": row.pickup_distance,
+                "assignment_status": row.assignment_status,
+                "assigned_at": row.assigned_at.isoformat() if row.assigned_at else None
             })
         return jsonify(students)
     except Exception as e:
@@ -656,11 +662,17 @@ def post_telemetry():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 400
 
+from sos.schemas import SWAGGER_SPEC
+@app.route('/swagger', methods=['GET'])
+def get_swagger_spec():
+    return jsonify(SWAGGER_SPEC)
+
 if __name__ == "__main__":
     # Audit connection pooling and tables before starting Flask
     if run_startup_health_check():
         logger.info("Starting Flask Telemetry Server on http://localhost:5000")
-        app.run(port=5000, debug=True)
+        from sos.startup import socketio
+        socketio.run(app, port=5000, debug=True, use_reloader=False, allow_unsafe_werkzeug=True)
     else:
         logger.critical("Database health check failed. System shut down.")
         os._exit(1)

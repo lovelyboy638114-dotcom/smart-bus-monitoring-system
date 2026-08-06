@@ -5,7 +5,21 @@ import { Calendar, CheckSquare, Clock, MapPin, Award } from 'lucide-react';
 const ParentTimeline = () => {
   const { students, parentSelfStudentId } = useApp();
 
-  const student = students.find((s) => s.id === parentSelfStudentId) || students[0];
+  const student = students.find((s) => s.id === parentSelfStudentId) || students[0] || {
+    id: '',
+    name: 'Student',
+    rollNo: '',
+    assignedBus: 'Bus 1',
+    pickupStop: 'Gandhipuram Bus Stand',
+    attendance: 'Not Checked In',
+    parentContact: '',
+    status: 'Waiting',
+    avatarUrl: '',
+    boarded: false,
+    reachedSchool: false,
+    boardedReturn: false,
+    reachedHome: false
+  };
 
   return (
     <div className="flex flex-col gap-6 p-6 max-w-2xl mx-auto h-[calc(100vh-4rem)] overflow-y-auto font-sans">

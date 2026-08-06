@@ -18,8 +18,23 @@ export interface Student {
   pickupStop: string;
   attendance: 'Present' | 'Absent' | 'Late' | 'Not Checked In';
   parentContact: string;
-  status: 'Waiting' | 'On Board' | 'Dropped' | 'Not Boarded';
+  status: 'Waiting' | 'On Board' | 'Dropped' | 'Not Boarded' | 'BUS_PENDING';
   avatarUrl: string;
+  rollNo?: string;
+  bloodGroup?: string;
+  address?: string;
+  medicalNotes?: string;
+  parentId?: number;
+  class?: string;
+  id_card_front_path?: string;
+  id_card_back_path?: string;
+  id_card_pdf_path?: string;
+  id_card_version?: number;
+  id_card_status?: string;
+  school_email?: string;
+  pickup_distance?: number;
+  assignment_status?: string;
+  assigned_at?: string;
 }
 
 export interface Driver {

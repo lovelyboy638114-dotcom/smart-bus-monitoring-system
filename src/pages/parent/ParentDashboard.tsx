@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import LeafletMap from '../../components/LeafletMap.tsx';
+import StudentIDCard from '../../components/StudentIDCard.tsx';
 import { 
   Navigation, Compass, AlertTriangle, Send, BellRing, 
   CheckCircle, UserCheck, ShieldAlert, X, ChevronRight, Bus
@@ -44,33 +45,77 @@ const ParentDashboard: React.FC = () => {
   ]);
   const [botInput, setBotInput] = useState('');
 
+  const parentId = localStorage.getItem('safebus_parent_id');
+  const parentPhone = localStorage.getItem('safebus_user_phone');
+  
+  const myChildren = students.filter(s => {
+    if (parentId && s.parentId === Number(parentId)) return true;
+    if (parentPhone && s.parentContact && s.parentContact.replace(/\s+/g, '') === parentPhone.replace(/\s+/g, '')) return true;
+    return false;
+  });
+
+  React.useEffect(() => {
+    if (!parentSelfStudentId && myChildren.length > 0) {
+      setParentSelfStudentId(myChildren[0].id);
+    }
+  }, [parentSelfStudentId, myChildren, setParentSelfStudentId]);
+
   // Selected Student Profile
-  const student = students.find((s) => s.id === parentSelfStudentId) || students[0];
-  const bus = buses.find((b) => b.id === student.assignedBus) || buses[0];
+  const student = myChildren.find((s) => s.id === parentSelfStudentId) || myChildren[0];
+  
+  const idCardData = student ? {
+    student_id: student.id,
+    name: student.name,
+    rollNo: student.rollNo,
+    class_name: student.class || 'Grade 10',
+    admission_no: student.rollNo || student.id,
+    front_path: student.id_card_front_path || null,
+    back_path: student.id_card_back_path || null,
+    pdf_path: student.id_card_pdf_path || null,
+    version: student.id_card_version || 1,
+    status: student.id_card_status || 'ACTIVE',
+    generated_at: student.assigned_at ? new Date(student.assigned_at).toISOString() : null
+  } : null;
+
+  const bus = student ? (buses.find((b) => b.id === student.assignedBus || b.id === (student.assignedBus === "Bus 1" ? "TN38AB1234" : student.assignedBus === "Bus 2" ? "TN38CD5678" : "TN38EP9012")) || buses[0]) : null;
+  const busVal = bus || {
+    id: 'Bus 1',
+    name: 'Bus 1',
+    routeNumber: 'R-01 (North Loop)',
+    status: 'Stopped',
+    speed: 0,
+    eta: '--',
+    battery: 92,
+    currentStopIndex: 0,
+    path: [{ lat: 11.0168, lng: 76.9558 }],
+    stops: [{ name: 'Gandhipuram Bus Stand', lat: 11.0168, lng: 76.9558 }],
+    color: '#2563eb',
+    students: []
+  };
 
   // Calculate live distance to stop (checks live tracking coordinate currentLocation first)
-  const busPos = bus.currentLocation || bus.path[bus.currentStopIndex] || bus.stops[0];
-  const stopItem = bus.stops.find(s => s.name === student.pickupStop) || bus.stops[0];
+  const busPos = busVal.currentLocation || busVal.path[busVal.currentStopIndex] || busVal.stops[0];
+  const stopItem = student ? (busVal.stops.find(s => s.name === student.pickupStop) || busVal.stops[0]) : busVal.stops[0];
   const distanceAway = getDistanceKm(busPos, { lat: stopItem.lat, lng: stopItem.lng });
 
   // Calculate dynamic next stop name
-  const nextStopIdx = Math.min(bus.stops.length - 1, Math.ceil(bus.currentStopIndex / 40));
-  const nextStopName = bus.stops[nextStopIdx]?.name || "Destination School";
+  const nextStopIdx = Math.min(busVal.stops.length - 1, Math.ceil(busVal.currentStopIndex / 40));
+  const nextStopName = busVal.stops[nextStopIdx]?.name || "Destination School";
 
   // Calculate dynamic ETA based on speed and distance away
   const calculateDynamicETA = () => {
-    if (bus.status !== 'Running') return "Awaiting start";
-    if (bus.speed <= 0) return "Delayed (Stopped)";
-    const mins = Math.round((distanceAway / bus.speed) * 60);
+    if (busVal.status !== 'Running') return "Awaiting start";
+    if (busVal.speed <= 0) return "Delayed (Stopped)";
+    const mins = Math.round((distanceAway / busVal.speed) * 60);
     if (mins <= 1) return "Arriving now";
-    return bus.status === 'Delayed' ? `${mins} mins (Delayed)` : `${mins} mins`;
+    return busVal.status === 'Delayed' ? `${mins} mins (Delayed)` : `${mins} mins`;
   };
   const dynamicETA = calculateDynamicETA();
 
   // Filter logs relevant to this student's bus
-  const relevantNotifications = notifications.filter(n => 
-    n.message.includes(bus.id) || n.message.includes(student.name) || n.message.includes(student.pickupStop)
-  );
+  const relevantNotifications = student ? notifications.filter(n => 
+    n.message.includes(busVal.id) || n.message.includes(student.name) || n.message.includes(student.pickupStop)
+  ) : [];
 
   const handleSendDriverMessage = (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,11 +153,25 @@ const ParentDashboard: React.FC = () => {
         ...prev,
         { 
           sender: 'bot', 
-          text: `Thank you. I have registered your complaint against Driver ${bus.driverName} (Bus ${bus.id}). Reference ID: #SB-COMP-${Math.floor(Math.random() * 900) + 100}` 
+          text: `Thank you. I have registered your complaint against Driver ${busVal.driverName} (Bus ${busVal.id}). Reference ID: #SB-COMP-${Math.floor(Math.random() * 900) + 100}` 
         }
       ]);
     }, 800);
   };
+
+  if (myChildren.length === 0) {
+    return (
+      <div className="flex flex-col gap-6 p-6 max-w-5xl mx-auto h-[calc(100vh-4rem)] overflow-y-auto font-sans items-center justify-center text-center">
+        <div className="bg-white border border-slate-200 p-8 rounded-2xl shadow-lg max-w-md">
+          <ShieldAlert className="w-12 h-12 text-rose-500 mx-auto mb-4" />
+          <h3 className="text-base font-black text-slate-800 uppercase tracking-wider">No Linked Students Found</h3>
+          <p className="text-xs text-slate-500 font-medium mt-2 leading-relaxed">
+            We could not locate any active pupil profiles linked to your parent credentials. Please contact Karpagam College of Engineering administration to link your phone/email to your child's student registry.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-6 p-6 max-w-5xl mx-auto h-[calc(100vh-4rem)] overflow-y-auto font-sans relative">
@@ -126,7 +185,7 @@ const ParentDashboard: React.FC = () => {
           <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider mt-1">Select Pupil Profile</h3>
         </div>
         <div className="flex gap-2">
-          {students.filter(s => ["ST001", "ST008", "ST015"].includes(s.id)).map(s => (
+          {myChildren.map(s => (
             <button
               key={s.id}
               onClick={() => setParentSelfStudentId(s.id)}
@@ -143,6 +202,18 @@ const ParentDashboard: React.FC = () => {
       </div>
 
       {/* Main Details and Live Map */}
+      {student && (student.status === 'BUS_PENDING' || student.assignedBus === 'BUS_PENDING' || student.assignment_status === 'BUS_PENDING') && (
+        <div className="bg-amber-50 border border-amber-250/70 p-4 rounded-2xl flex items-start gap-3 text-left mb-2 shadow-soft">
+          <div className="p-2 bg-amber-100 rounded-xl text-amber-800 font-black text-xs">⚠️</div>
+          <div>
+            <h4 className="text-xs font-black text-amber-900 uppercase tracking-wider">Bus Assignment Pending Verification</h4>
+            <p className="text-[10.5px] text-amber-800/90 font-bold mt-1 leading-relaxed">
+              SafeBus AI is finalizing the transportation schedule for {student.name}. The automatic geocoding system has matched or placed the account in review due to distance checks or bus capacity limits. The administration has been notified to complete the assignment manually.
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Left column: Student Transit telemetry */}
@@ -164,48 +235,70 @@ const ParentDashboard: React.FC = () => {
               </div>
               <div className="flex justify-between">
                 <span>Bus Number:</span>
-                <span className="font-bold text-slate-850">{student.assignedBus}</span>
+                <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
+                  student.assignedBus === 'BUS_PENDING' || student.status === 'BUS_PENDING'
+                    ? 'bg-amber-50 text-amber-700 border border-amber-100'
+                    : 'text-slate-850 font-bold'
+                }`}>
+                  {student.assignedBus === 'BUS_PENDING' || student.status === 'BUS_PENDING' ? 'PENDING' : student.assignedBus}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span>Next Stop:</span>
-                <span className="font-bold text-blue-600 truncate max-w-[150px]">{nextStopName}</span>
+                <span className="font-bold text-blue-600 truncate max-w-[150px]">
+                  {student.assignedBus === 'BUS_PENDING' || student.status === 'BUS_PENDING' ? 'PENDING' : nextStopName}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span>Pickup Stop:</span>
-                <span className="font-bold text-slate-850 truncate max-w-[150px]">{student.pickupStop}</span>
+                <span className="font-bold text-slate-850 truncate max-w-[150px]">
+                  {student.assignedBus === 'BUS_PENDING' || student.status === 'BUS_PENDING' ? 'PENDING (Calculating)' : student.pickupStop}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>Stop Distance to Home:</span>
+                <span className="font-bold text-indigo-600 font-mono">
+                  {student.pickup_distance !== undefined && student.pickup_distance !== null
+                    ? `${Math.round(student.pickup_distance)} meters`
+                    : 'Manual / Pending'}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span>Distance to Stop:</span>
                 <span className="font-bold text-slate-850 font-mono">
-                  {bus.status === 'Running' ? `${distanceAway.toFixed(2)} km` : '--'}
+                  {bus && bus.status === 'Running' && student.status !== 'BUS_PENDING' ? `${distanceAway.toFixed(2)} km` : '--'}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span>Current Location:</span>
                 <span className="font-bold text-slate-850 font-mono text-[10px]">
-                  {bus.status === 'Running' 
+                  {bus && bus.status === 'Running' && student.status !== 'BUS_PENDING'
                     ? `${busPos.lat.toFixed(4)}° N, ${busPos.lng.toFixed(4)}° E` 
                     : 'Depot'}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span>Speed:</span>
-                <span className="font-bold text-slate-850 font-mono">{bus.status === 'Running' ? `${bus.speed} km/h` : '0 km/h'}</span>
+                <span className="font-bold text-slate-850 font-mono">
+                  {bus && bus.status === 'Running' && student.status !== 'BUS_PENDING' ? `${bus.speed} km/h` : '0 km/h'}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span>ETA to Stop:</span>
-                <span className="font-bold text-emerald-600 font-mono">{dynamicETA}</span>
+                <span className="font-bold text-emerald-600 font-mono">
+                  {student.status === 'BUS_PENDING' ? 'Pending assignment' : dynamicETA}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span>Bus Status:</span>
                 <span className={`px-2 py-0.5 text-[8.5px] font-black uppercase rounded ${
-                  bus.status === 'Running'
+                  bus && bus.status === 'Running' && student.status !== 'BUS_PENDING'
                     ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                    : bus.status === 'Delayed'
+                    : bus && bus.status === 'Delayed' && student.status !== 'BUS_PENDING'
                     ? 'bg-rose-50 text-rose-700 border border-rose-200'
                     : 'bg-slate-100 text-slate-600'
                 }`}>
-                  {bus.status}
+                  {student.status === 'BUS_PENDING' ? 'PENDING' : (bus ? bus.status : 'Stopped')}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -219,6 +312,8 @@ const ParentDashboard: React.FC = () => {
                     ? 'bg-amber-100 text-amber-800 animate-pulse'
                     : student.status === 'Dropped'
                     ? 'bg-emerald-100 text-emerald-800'
+                    : student.status === 'BUS_PENDING'
+                    ? 'bg-amber-50 text-amber-705 border border-amber-200'
                     : 'bg-slate-100 text-slate-600'
                 }`}>
                   {student.status}
@@ -234,7 +329,9 @@ const ParentDashboard: React.FC = () => {
             </span>
             <div className="p-4 bg-white border border-slate-150 rounded-2xl inline-block shadow-sm">
               <img 
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=130x130&data=${student.id}`} 
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=130x130&data=${encodeURIComponent(
+                  `=== SafeBus AI - Student ID ===\nID: ${student.id}\nName: ${student.name}\nRoll No: ${student.rollNo}\nClass: ${student.class || 'Grade 10'}\nStatus: ACTIVE`
+                )}`} 
                 alt="Pupil Pass QR"
                 className="w-32 h-32"
               />
@@ -308,6 +405,13 @@ const ParentDashboard: React.FC = () => {
           <div className="h-[300px]">
             <LeafletMap buses={buses} selectedBusId={bus.id} />
           </div>
+
+          {/* Child ID Badge Card */}
+          {idCardData && (
+            <div className="flex justify-center bg-white border border-slate-200 p-4 rounded-2xl shadow-sm overflow-hidden">
+              <StudentIDCard studentData={idCardData} />
+            </div>
+          )}
 
           {/* Student Notifications History panel */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden text-left flex flex-col min-h-[180px]">
