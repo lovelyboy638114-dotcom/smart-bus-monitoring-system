@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import schoolBusHero from '../assets/school_bus_hero.jpg';
+import { API_BASE_URL } from '../config';
 
 const LoginSelection = () => {
   const { setUserRole } = useApp();
@@ -129,7 +130,7 @@ const LoginSelection = () => {
     }
 
     try {
-      const response = await fetch('http://localhost:5000/api/login', {
+      const response = await fetch(`${API_BASE_URL}/api/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -219,7 +220,7 @@ const LoginSelection = () => {
 
     setChangeLoading(true);
     try {
-      const response = await fetch('http://localhost:5000/api/v1/change-password', {
+      const response = await fetch(`${API_BASE_URL}/api/v1/change-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

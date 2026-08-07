@@ -5,6 +5,7 @@ import {
   Shield, Activity, Compass, AlertOctagon, MonitorDot, Plus, 
   X, Clipboard, Printer, Download, Key, CheckCircle, UserPlus 
 } from 'lucide-react';
+import { API_BASE_URL } from '../../config';
 
 const DriverAnalysis = () => {
   const { buses, setBuses } = useApp();
@@ -48,7 +49,7 @@ const DriverAnalysis = () => {
     e.preventDefault();
     setRegisterLoading(true);
     try {
-      const response = await fetch('http://localhost:5000/api/v1/admin/register/driver', {
+      const response = await fetch(`${API_BASE_URL}/api/v1/admin/register/driver`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -59,7 +60,7 @@ const DriverAnalysis = () => {
       const resJson = await response.json();
       if (response.ok && resJson.success) {
         // Refresh buses (which will include the driver profile assignment)
-        const refreshResponse = await fetch('http://localhost:5000/api/buses');
+        const refreshResponse = await fetch(`${API_BASE_URL}/api/buses`);
         const refreshedBuses = await refreshResponse.json();
         setBuses(refreshedBuses);
 
@@ -87,7 +88,7 @@ const DriverAnalysis = () => {
     if (!window.confirm(`Are you sure you want to reset password for driver ${username}?`)) return;
     setResetLoading(true);
     try {
-      const response = await fetch(`http://localhost:5000/api/v1/admin/accounts/${username}/reset-password`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/admin/accounts/${username}/reset-password`, {
         method: 'POST',
         headers: {
           'X-User-Role': 'admin'
@@ -476,7 +477,7 @@ const DriverAnalysis = () => {
                 </button>
                 {(createdCredentials.driver_pdf || createdCredentials.pdf_path) && (
                   <a
-                    href={`http://localhost:5000${createdCredentials.driver_pdf || createdCredentials.pdf_path}`}
+                    href={`${API_BASE_URL}${createdCredentials.driver_pdf || createdCredentials.pdf_path}`}
                     target="_blank"
                     rel="noreferrer"
                     className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold uppercase tracking-wider flex items-center justify-center gap-1 shadow-sm text-center"

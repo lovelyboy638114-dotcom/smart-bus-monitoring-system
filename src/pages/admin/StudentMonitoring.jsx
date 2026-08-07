@@ -4,6 +4,7 @@ import {
   Users, Phone, MapPin, CheckCircle, Clock, ChevronRight, X, Sparkles, 
   Plus, ShieldAlert, Key, Clipboard, Printer, Download, UserRoundPlus 
 } from 'lucide-react';
+import { API_BASE_URL } from '../../config';
 
 const StudentMonitoring = () => {
   const { students, handleStudentBoarding, setStudents, buses } = useApp();
@@ -69,7 +70,7 @@ const StudentMonitoring = () => {
   const handleRegenerateIDCard = async (studentId) => {
     setRegenLoading(true);
     try {
-      const response = await fetch(`http://localhost:5000/api/v1/students/${studentId}/regenerate-id-card`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/students/${studentId}/regenerate-id-card`, {
         method: 'POST',
         headers: {
           'X-User-Role': 'admin'
@@ -117,7 +118,7 @@ const StudentMonitoring = () => {
     if (!window.confirm(`Are you sure you want to reset password for ${username}?`)) return;
     setResetLoading(true);
     try {
-      const response = await fetch(`http://localhost:5000/api/v1/admin/accounts/${username}/reset-password`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/admin/accounts/${username}/reset-password`, {
         method: 'POST',
         headers: {
           'X-User-Role': 'admin'
@@ -145,7 +146,7 @@ const StudentMonitoring = () => {
     e.preventDefault();
     setRegisterLoading(true);
     try {
-      const response = await fetch('http://localhost:5000/api/v1/admin/register/student', {
+      const response = await fetch(`${API_BASE_URL}/api/v1/admin/register/student`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -161,7 +162,7 @@ const StudentMonitoring = () => {
       const resJson = await response.json();
       if (response.ok && resJson.success) {
         // Refresh local student lists
-        const refreshResponse = await fetch('http://localhost:5000/api/students');
+        const refreshResponse = await fetch(`${API_BASE_URL}/api/students`);
         const refreshedData = await refreshResponse.json();
         setStudents(refreshedData);
         
@@ -422,13 +423,13 @@ const StudentMonitoring = () => {
               {selectedStudent.id_card_front_path ? (
                 <div className="relative group overflow-hidden rounded-lg border border-slate-200 aspect-[1.6/1] bg-white">
                   <img 
-                    src={`http://localhost:5000${selectedStudent.id_card_front_path}?v=${selectedStudent.id_card_version || 1}`} 
+                    src={`${API_BASE_URL}${selectedStudent.id_card_front_path}?v=${selectedStudent.id_card_version || 1}`} 
                     alt="ID Badge Front Preview"
                     className="w-full h-full object-cover group-hover:scale-105 transition-all duration-300"
                   />
                   <div className="absolute inset-0 bg-slate-900/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                     <a 
-                      href={`http://localhost:5000${selectedStudent.id_card_pdf_path}`}
+                      href={`${API_BASE_URL}${selectedStudent.id_card_pdf_path}`}
                       target="_blank"
                       rel="noreferrer"
                       className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-[10px] font-extrabold uppercase tracking-wide flex items-center gap-1 shadow-sm"
@@ -880,7 +881,7 @@ const StudentMonitoring = () => {
                 </button>
                 {(createdCredentials.student_pdf || createdCredentials.pdf_path) && (
                   <a
-                    href={`http://localhost:5000${createdCredentials.student_pdf || createdCredentials.pdf_path}`}
+                    href={`${API_BASE_URL}${createdCredentials.student_pdf || createdCredentials.pdf_path}`}
                     target="_blank"
                     rel="noreferrer"
                     className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold uppercase tracking-wider flex items-center justify-center gap-1 shadow-sm text-center"

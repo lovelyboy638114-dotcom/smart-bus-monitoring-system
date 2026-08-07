@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import StudentIDCard from '../../components/StudentIDCard.tsx';
 import { Loader2, ShieldAlert } from 'lucide-react';
+import { API_BASE_URL } from '../../config';
 
 const StudentIDCardPage = () => {
   const [cardData, setCardData] = useState(null);
@@ -11,7 +12,7 @@ const StudentIDCardPage = () => {
     const fetchCard = async () => {
       try {
         const username = localStorage.getItem('safebus_user_username') || 'student@happyjourney.ai';
-        const response = await fetch('http://localhost:5000/api/v1/student/my-id-card', {
+        const response = await fetch(`${API_BASE_URL}/api/v1/student/my-id-card`, {
           headers: {
             'X-User-Role': 'student',
             'X-User-Username': username

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import StudentIDCard from '../../components/StudentIDCard.tsx';
 import { Loader2, ShieldAlert } from 'lucide-react';
+import { API_BASE_URL } from '../../config';
 
 const ChildIDCardPage = () => {
   const { parentSelfStudentId, students } = useApp();
@@ -29,7 +30,7 @@ const ChildIDCardPage = () => {
       setError('');
       try {
         const username = localStorage.getItem('safebus_user_username') || 'parent@happyjourney.ai';
-        const response = await fetch(`http://localhost:5000/api/v1/parent/student-id-card/${parentSelfStudentId}`, {
+        const response = await fetch(`${API_BASE_URL}/api/v1/parent/student-id-card/${parentSelfStudentId}`, {
           headers: {
             'X-User-Role': 'parent',
             'X-User-Username': username

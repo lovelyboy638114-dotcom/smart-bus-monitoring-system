@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Shield, Bus, Smartphone, Users, ArrowLeft, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import schoolBusHero from '../assets/school_bus_hero.jpg';
+import { API_BASE_URL } from '../config';
 
 const SignUp = () => {
   const navigate = useNavigate();
@@ -53,7 +54,7 @@ const SignUp = () => {
     }
 
     // Try posting to backend if connected
-    const API_URL = "http://localhost:5000/api";
+    const API_URL = `${API_BASE_URL}/api`;
     let backendSuccess = false;
     try {
       const response = await fetch(`${API_URL}/register`, {
