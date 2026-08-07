@@ -25,7 +25,16 @@ const DriverDashboard = () => {
   };
 
   // Murugan is mock driver for Bus 1
-  const bus = buses.find((b) => b.id === 'Bus 1') || buses[0];
+  const bus = buses.find((b) => b.id === 'Bus 1') || buses[0] || {
+    id: 'Bus 1',
+    name: 'Bus 1',
+    routeNumber: 'R-01 (North Loop)',
+    status: 'Stopped',
+    speed: 0,
+    driverLicense: 'DL-TN38AB2024',
+    driverExperience: '8',
+    currentLocation: { lat: 11.0168, lng: 76.9558 }
+  };
   const busStudents = students.filter((s) => s.assignedBus === bus.id);
   const checkedInCount = busStudents.filter((s) => s.status === 'On Board').length;
 
@@ -48,7 +57,7 @@ const DriverDashboard = () => {
         latitude: bus.currentLocation ? bus.currentLocation.lat : 10.8801,
         longitude: bus.currentLocation ? bus.currentLocation.lng : 77.0224,
         speed: bus.speed || 0,
-        route: bus.route,
+        route: bus.routeNumber || bus.route || "R-01 (North Loop)",
         emergency_type: sosType,
         driver_id: "driver@happyjourney.ai",
         driver_name: "Murugan"
@@ -143,7 +152,7 @@ const DriverDashboard = () => {
               <span className="text-[8px] font-extrabold text-slate-400 uppercase tracking-widest block mb-0.5">
                 Active Assigned Route
               </span>
-              <h4 className="text-xs font-bold text-slate-800 uppercase">{bus.route}</h4>
+              <h4 className="text-xs font-bold text-slate-800 uppercase">{bus.routeNumber || bus.route || "R-01 (North Loop)"}</h4>
             </div>
             <span className={`px-2 py-0.5 text-[9px] font-bold rounded-full ${
               bus.status === 'Idle' 
