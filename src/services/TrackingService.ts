@@ -1,3 +1,5 @@
+import { API_BASE_URL } from '../config';
+
 export interface BusLocationResponse {
   id: string;
   name: string;
@@ -13,7 +15,7 @@ export interface BusLocationResponse {
  * Service to request real-time bus locations from the telematics backend API.
  */
 export const fetchBusesLocation = async (): Promise<BusLocationResponse[]> => {
-  const response = await fetch("http://localhost:5000/api/buses/location");
+  const response = await fetch(`${API_BASE_URL}/api/buses/location`);
   if (!response.ok) {
     throw new Error("Backend server is offline or returned an error.");
   }

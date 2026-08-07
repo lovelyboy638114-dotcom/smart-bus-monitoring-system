@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Search, Filter, Calendar, Award, CheckCircle2, Download, BarChart2, TrendingUp, Clock } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell } from 'recharts';
+import { API_BASE_URL } from '../../config';
 
 const EmergencyHistory = () => {
   const { sosStatistics, triggerNotification = () => {} } = useApp();
@@ -12,7 +13,7 @@ const EmergencyHistory = () => {
 
   const fetchHistory = () => {
     setLoading(true);
-    fetch("http://localhost:5000/api/v1/sos/history")
+    fetch(`${API_BASE_URL}/api/v1/sos/history`)
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {

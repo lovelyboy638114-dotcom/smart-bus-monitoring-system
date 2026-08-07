@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { RotateCw, Download, Printer, ZoomIn, ZoomOut, Maximize2, ShieldAlert, Sparkles, Loader } from 'lucide-react';
+import { API_BASE_URL } from '../config';
 
 interface StudentIDCardProps {
   studentData: {
@@ -25,7 +26,7 @@ const StudentIDCard: React.FC<StudentIDCardProps> = ({ studentData, onRegenerate
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const backendUrl = "http://localhost:5000";
+  const backendUrl = API_BASE_URL;
   
   const cacheBuster = Date.now();
   const frontImage = studentData.front_path ? `${backendUrl}${studentData.front_path}?v=${studentData.version}&t=${cacheBuster}` : null;

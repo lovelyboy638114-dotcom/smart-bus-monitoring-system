@@ -9,6 +9,7 @@ import {
   bus3Stops
 } from '../data/mockData';
 import { getDistanceKm, checkRouteDeviation, calculateBearing } from '../services/GPSService';
+import { API_BASE_URL } from '../config';
 
 interface AppContextType {
   buses: Bus[];
@@ -134,7 +135,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
-        const studentsRes = await fetch("http://localhost:5000/api/students");
+        const studentsRes = await fetch(`${API_BASE_URL}/api/students`);
         const studentsData = await studentsRes.json();
         
         let mappedStudents: Student[] = [];
@@ -208,7 +209,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
         }
 
-        const busesRes = await fetch("http://localhost:5000/api/buses");
+        const busesRes = await fetch(`${API_BASE_URL}/api/buses`);
         const busesData = await busesRes.json();
         if (Array.isArray(busesData)) {
           setBuses(busesData.map((b: any) => mapDbBusToFrontendBus(b, mappedStudents)));
@@ -293,7 +294,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const fetchActiveSOS = () => {
-    fetch("http://localhost:5000/api/v1/sos/active")
+    fetch(`${API_BASE_URL}/api/v1/sos/active`)
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {
@@ -304,7 +305,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const fetchSOSStats = () => {
-    fetch("http://localhost:5000/api/v1/sos/statistics")
+    fetch(`${API_BASE_URL}/api/v1/sos/statistics`)
       .then(res => res.json())
       .then(data => {
         setSosStatistics(data);
@@ -313,7 +314,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const triggerSOSAlert = async (payload: any) => {
-    const res = await fetch("http://localhost:5000/api/v1/sos", {
+    const res = await fetch(`${API_BASE_URL}/api/v1/sos`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
@@ -329,7 +330,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const acknowledgeSOSAlert = async (sosId: string) => {
     const username = localStorage.getItem("safebus_username") || "Admin Portal";
-    const res = await fetch(`http://localhost:5000/api/v1/sos/${sosId}/acknowledge`, {
+    const res = await fetch(`${API_BASE_URL}/api/v1/sos/${sosId}/acknowledge`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username })
@@ -344,7 +345,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const resolveSOSAlert = async (sosId: string, remarks: string) => {
     const username = localStorage.getItem("safebus_username") || "Admin Portal";
-    const res = await fetch(`http://localhost:5000/api/v1/sos/${sosId}/resolve`, {
+    const res = await fetch(`${API_BASE_URL}/api/v1/sos/${sosId}/resolve`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, remarks })
@@ -392,7 +393,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSimMinutes(7 * 60 + 18);
     setSimTime("07:18 AM");
     // Fetch fresh copy of students and buses from backend
-    fetch("http://localhost:5000/api/students")
+    fetch(`${API_BASE_URL}/api/students`)
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {
@@ -451,7 +452,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }));
           setStudents(mapped);
 
-          fetch("http://localhost:5000/api/buses")
+          fetch(`${API_BASE_URL}/api/buses`)
             .then(res => res.json())
             .then(busesData => {
               if (Array.isArray(busesData)) {
@@ -566,7 +567,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     let offlineLogged = false;
 
     const pollInterval = setInterval(() => {
-      fetch("http://localhost:5000/api/driver/behavior")
+      fetch(`${API_BASE_URL}/api/driver/behavior`)
         .then(res => {
           if (!res.ok) throw new Error("Backend unavailable");
           return res.json();
@@ -616,7 +617,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     let offlineLogged = false;
 
     const pollTracking = setInterval(() => {
-      fetch("http://localhost:5000/api/buses/location")
+      fetch(`${API_BASE_URL}/api/buses/location`)
         .then(res => {
           if (!res.ok) throw new Error("API server offline");
           return res.json();
@@ -702,7 +703,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     let socket: any;
     try {
-      socket = io("http://localhost:5000", { transports: ["websocket", "polling"] });
+      socket = io(API_BASE_URL, { transports: ["websocket", "polling"] });
       socketRef.current = socket;
       
       socket.on("connect", () => {
