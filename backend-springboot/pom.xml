@@ -53,7 +53,6 @@
         <module>student-service</module>
         <module>transport-service</module>
         <module>attendance-service</module>
-        <module>bus-assignment-service</module>
         <module>notification-service</module>
         <module>file-storage-service</module>
         <module>sos-service</module>

@@ -102,4 +102,20 @@ public class StudentService {
             throw new RuntimeException("ID Card regeneration failed: " + e.getMessage(), e);
         }
     }
+
+    @org.springframework.transaction.annotation.Transactional
+    public Student updateStudentBusAssignment(String studentId, String busId, String status) {
+        Optional<Student> studentOpt = studentRepository.findById(studentId);
+        if (studentOpt.isEmpty()) {
+            throw new RuntimeException("Student not found: " + studentId);
+        }
+        Student student = studentOpt.get();
+        student.setBusId(busId);
+        student.setStatus(status);
+        return studentRepository.save(student);
+    }
+
+    public long getAssignedCount(String busId) {
+        return studentRepository.countByBusId(busId);
+    }
 }

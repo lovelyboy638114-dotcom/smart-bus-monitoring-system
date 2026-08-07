@@ -86,4 +86,31 @@ public class StudentController {
                     .body(ApiResponse.error(e.getMessage(), "FILE_001", correlationId));
         }
     }
+
+    @PutMapping("/{studentId}/assign-bus")
+    public ResponseEntity<ApiResponse<Student>> assignBusToStudent(
+            @PathVariable String studentId,
+            @RequestParam String busId,
+            @RequestParam String status) {
+        String correlationId = UUID.randomUUID().toString();
+        try {
+            Student student = studentService.updateStudentBusAssignment(studentId, busId, status);
+            return ResponseEntity.ok(ApiResponse.success("Student bus assignment updated", student, correlationId));
+        } catch (Exception e) {
+            return ResponseEntity.status(404)
+                    .body(ApiResponse.error(e.getMessage(), "STU_001", correlationId));
+        }
+    }
+
+    @GetMapping("/assigned-count")
+    public ResponseEntity<ApiResponse<Long>> getAssignedCount(@RequestParam String busId) {
+        String correlationId = UUID.randomUUID().toString();
+        try {
+            long count = studentService.getAssignedCount(busId);
+            return ResponseEntity.ok(ApiResponse.success("Assigned student count retrieved", count, correlationId));
+        } catch (Exception e) {
+            return ResponseEntity.status(500)
+                    .body(ApiResponse.error(e.getMessage(), "STU_001", correlationId));
+        }
+    }
 }
