@@ -1,0 +1,3 @@
+com\safebus\analytics\AnalyticsApplication.class
+com\safebus\analytics\scheduler\DailyReportScheduler.class
+com\safebus\analytics\controller\AnalyticsController.class

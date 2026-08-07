@@ -1,0 +1,71 @@
+server:
+  port: 8080
+
+spring:
+  cloud:
+    gateway:
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOrigins: "*"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+            allowedHeaders: "*"
+      routes:
+        # Auth Service Route
+        - id: auth-service
+          uri: lb://safebus-auth-service
+          predicates:
+            - Path=/api/v1/auth/**
+        
+        # Student Service Route
+        - id: student-service
+          uri: lb://safebus-student-service
+          predicates:
+            - Path=/api/v1/students/**
+        
+        # Bus Service Routes
+        - id: bus-service
+          uri: lb://safebus-bus-service
+          predicates:
+            - Path=/api/v1/buses/**, /api/v1/routes/**, /api/v1/telemetry/**
+        
+        # Attendance Service Route
+        - id: attendance-service
+          uri: lb://safebus-attendance-service
+          predicates:
+            - Path=/api/v1/attendance/**
+
+        # Bus Assignment Service Route
+        - id: bus-assignment-service
+          uri: lb://safebus-bus-assignment-service
+          predicates:
+            - Path=/api/v1/assignments/**
+
+        # Notification Service Route
+        - id: notification-service
+          uri: lb://safebus-notification-service
+          predicates:
+            - Path=/api/v1/notifications/**
+
+        # File Storage Service Route
+        - id: file-storage-service
+          uri: lb://safebus-file-storage-service
+          predicates:
+            - Path=/api/v1/storage/**
+
+        # SOS Service Route
+        - id: sos-service
+          uri: lb://safebus-sos-service
+          predicates:
+            - Path=/api/v1/sos/**
+
+        # Analytics Service Route
+        - id: analytics-service
+          uri: lb://safebus-analytics-service
+          predicates:
+            - Path=/api/v1/analytics/**

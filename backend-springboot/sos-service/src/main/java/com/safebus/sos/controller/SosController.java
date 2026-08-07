@@ -22,19 +22,18 @@ public class SosController {
         String correlationId = UUID.randomUUID().toString();
         try {
             SosAlert alert = sosService.createSos(req);
-            Map<String, Object> res = Map.of(
-                    "sos_id", alert.getSosId(),
-                    "bus_id", alert.getBusId(),
-                    "driver_name", alert.getDriverName(),
-                    "latitude", alert.getLatitude(),
-                    "longitude", alert.getLongitude(),
-                    "speed", alert.getSpeed(),
-                    "route", alert.getRouteName() != null ? alert.getRouteName() : "",
-                    "emergency_type", alert.getEmergencyType(),
-                    "status", alert.getStatus().name(),
-                    "severity", alert.getSeverity().name(),
-                    "time", alert.getCreatedAt().toString()
-            );
+            Map<String, Object> res = new HashMap<>();
+            res.put("sos_id", alert.getSosId());
+            res.put("bus_id", alert.getBusId());
+            res.put("driver_name", alert.getDriverName());
+            res.put("latitude", alert.getLatitude());
+            res.put("longitude", alert.getLongitude());
+            res.put("speed", alert.getSpeed());
+            res.put("route", alert.getRouteName() != null ? alert.getRouteName() : "");
+            res.put("emergency_type", alert.getEmergencyType());
+            res.put("status", alert.getStatus().name());
+            res.put("severity", alert.getSeverity().name());
+            res.put("time", alert.getCreatedAt().toString());
             return ResponseEntity.status(201).body(ApiResponse.success("Emergency SOS alert triggered successfully.", res, correlationId));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(409).body(ApiResponse.error(e.getMessage(), "SOS_002", correlationId));

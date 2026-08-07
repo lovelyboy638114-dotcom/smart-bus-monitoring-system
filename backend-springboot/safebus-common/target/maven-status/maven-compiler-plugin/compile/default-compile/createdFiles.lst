@@ -1,0 +1,11 @@
+com\safebus\common\dto\response\ApiResponse$ApiResponseBuilder.class
+com\safebus\common\dto\event\StudentRegisteredEventV1$StudentRegisteredEventV1BuilderImpl.class
+com\safebus\common\exception\ErrorCode.class
+com\safebus\common\dto\response\ApiResponse.class
+com\safebus\common\dto\event\StudentRegisteredEventV1.class
+com\safebus\common\dto\event\BaseEventV1$BaseEventV1Builder.class
+com\safebus\common\dto\event\BaseEventV1.class
+com\safebus\common\dto\event\BusAssignedEventV1$BusAssignedEventV1BuilderImpl.class
+com\safebus\common\dto\event\StudentRegisteredEventV1$StudentRegisteredEventV1Builder.class
+com\safebus\common\dto\event\BusAssignedEventV1$BusAssignedEventV1Builder.class
+com\safebus\common\dto\event\BusAssignedEventV1.class
