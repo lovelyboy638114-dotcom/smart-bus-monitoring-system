@@ -1,0 +1,7 @@
+server:
+  port: 8081
+
+jwt:
+  secret: 9a62a983b772c8427f711200427b58a18df7b51b3d5b0d099903e1b7b75249f7
+  expiration: 900000        # 15 minutes (in milliseconds)
+  refresh-expiration: 604800000 # 7 days (in milliseconds)
