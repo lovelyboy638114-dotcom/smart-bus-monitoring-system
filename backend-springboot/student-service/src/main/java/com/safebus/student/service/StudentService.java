@@ -17,11 +17,13 @@ public class StudentService {
     private final StudentRepository studentRepository;
     private final ParentRepository parentRepository;
     private final RestTemplate restTemplate;
+    private final IDCardService idCardService;
 
-    public StudentService(StudentRepository studentRepository, ParentRepository parentRepository, RestTemplate restTemplate) {
+    public StudentService(StudentRepository studentRepository, ParentRepository parentRepository, RestTemplate restTemplate, IDCardService idCardService) {
         this.studentRepository = studentRepository;
         this.parentRepository = parentRepository;
         this.restTemplate = restTemplate;
+        this.idCardService = idCardService;
     }
 
     public Parent resolveParent(String username) {
@@ -68,7 +70,7 @@ public class StudentService {
 
         Student student = studentOpt.get();
 
-        // Prepare REST request payload for file-storage-service
+        // Prepare payload for ID Card generation
         Map<String, Object> payload = new HashMap<>();
         payload.put("id", student.getId());
         payload.put("name", student.getName());
@@ -81,22 +83,21 @@ public class StudentService {
         payload.put("parentName", student.getParentName() != null ? student.getParentName() : "N/A");
         payload.put("parentPhone", student.getParentPhone() != null ? student.getParentPhone() : "N/A");
 
-        // Make REST Call to file-storage-service
-        String storageUrl = "http://file-storage-service/api/v1/storage/generate-card";
+        // Make direct local call to IDCardService
         try {
-            Map<?, ?> paths = restTemplate.postForObject(storageUrl, payload, Map.class);
+            Map<String, String> paths = idCardService.generateIDCard(payload);
             if (paths != null && !paths.containsKey("error")) {
-                student.setIdCardFrontPath((String) paths.get("front_path"));
-                student.setIdCardBackPath((String) paths.get("back_path"));
-                student.setIdCardPdfPath((String) paths.get("pdf_path"));
+                student.setIdCardFrontPath(paths.get("front_path"));
+                student.setIdCardBackPath(paths.get("back_path"));
+                student.setIdCardPdfPath(paths.get("pdf_path"));
                 student.setIdCardGeneratedAt(LocalDateTime.now());
                 student.setIdCardStatus("ACTIVE");
                 student.setIdCardVersion(student.getIdCardVersion() != null ? student.getIdCardVersion() + 1 : 1);
 
                 return studentRepository.save(student);
             } else {
-                String error = paths != null ? (String) paths.get("error") : "Unknown Error";
-                throw new RuntimeException("File Storage Service failed: " + error);
+                String error = paths != null ? paths.get("error") : "Unknown Error";
+                throw new RuntimeException("IDCardService failed: " + error);
             }
         } catch (Exception e) {
             throw new RuntimeException("ID Card regeneration failed: " + e.getMessage(), e);

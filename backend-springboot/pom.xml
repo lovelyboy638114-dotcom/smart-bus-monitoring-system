@@ -54,9 +54,6 @@
         <module>transport-service</module>
         <module>attendance-service</module>
         <module>notification-service</module>
-        <module>file-storage-service</module>
-        <module>sos-service</module>
-        <module>analytics-service</module>
     </modules>
 
     <build>
