@@ -1,0 +1,394 @@
+{
+	"info": {
+		"_postman_id": "8b5c907b-83c3-4d4b-a913-6f7cdcb7424b",
+		"name": "SafeBus AI API Suite",
+		"description": "Comprehensive Postman Collection for all SafeBus AI microservices (routed through API Gateway on port 8080)",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "1. Authentication",
+			"item": [
+				{
+					"name": "User Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"if (jsonData && jsonData.data && jsonData.data.token) {",
+									"    pm.collectionVariables.set(\"jwtToken\", jsonData.data.token);",
+									"    console.log(\"JWT Token set successfully:\", jsonData.data.token);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"rahulr003_1.student@happyjourney.ai\",\n    \"password\": \"Rahul@R003\"\n}"
+						},
+						"url": {
+							"raw": "{{gatewayUrl}}/api/v1/auth/login",
+							"host": [
+								"{{gatewayUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"login"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "2. Attendance",
+			"item": [
+				{
+					"name": "Process Scan (Board/Drop)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"studentId\": \"ST003\",\n    \"busId\": \"TN38AB1234\",\n    \"attendanceType\": \"Boarded\",\n    \"scanDate\": \"2026-08-12\",\n    \"scanTime\": \"11:15 AM\",\n    \"latitude\": 10.8801,\n    \"longitude\": 77.0224,\n    \"driverName\": \"Murugan\",\n    \"tripId\": \"TRIP-01\"\n}"
+						},
+						"url": {
+							"raw": "{{gatewayUrl}}/api/v1/attendance/scan",
+							"host": [
+								"{{gatewayUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"attendance",
+								"scan"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Attendance Logs",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{gatewayUrl}}/api/v1/attendance/logs/{{studentId}}",
+							"host": [
+								"{{gatewayUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"attendance",
+								"logs",
+								"{{studentId}}"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "3. Students",
+			"item": [
+				{
+					"name": "Get All Students",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwtToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{gatewayUrl}}/api/v1/students",
+							"host": [
+								"{{gatewayUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"students"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Regenerate Student ID Card",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-User-Role",
+								"value": "admin",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{gatewayUrl}}/api/v1/students/{{studentId}}/regenerate-id-card",
+							"host": [
+								"{{gatewayUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"students",
+								"{{studentId}}",
+								"regenerate-id-card"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "4. Transport & Tracking",
+			"item": [
+				{
+					"name": "Get All Buses",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{gatewayUrl}}/api/v1/buses",
+							"host": [
+								"{{gatewayUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"buses"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Live Bus Locations",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{gatewayUrl}}/api/v1/buses/location",
+							"host": [
+								"{{gatewayUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"buses",
+								"location"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Routes",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{gatewayUrl}}/api/v1/routes",
+							"host": [
+								"{{gatewayUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"routes"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "5. SOS Emergency",
+			"item": [
+				{
+					"name": "Get Active SOS Alerts",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{gatewayUrl}}/api/v1/sos/active",
+							"host": [
+								"{{gatewayUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"sos",
+								"active"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Trigger SOS Alert",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"busId\": \"TN38AB1234\",\n    \"emergencyType\": \"ENGINE_FAILURE\",\n    \"latitude\": 10.8801,\n    \"longitude\": 77.0224,\n    \"remarks\": \"Engine smoke detected near RS Puram.\"\n}"
+						},
+						"url": {
+							"raw": "{{gatewayUrl}}/api/v1/sos",
+							"host": [
+								"{{gatewayUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"sos"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Acknowledge SOS Alert",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"Admin Portal\"\n}"
+						},
+						"url": {
+							"raw": "{{gatewayUrl}}/api/v1/sos/{{sosId}}/acknowledge",
+							"host": [
+								"{{gatewayUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"sos",
+								"{{sosId}}",
+								"acknowledge"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Resolve SOS Alert",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"Admin Portal\",\n    \"remarks\": \"Replacement bus deployed.\"\n}"
+						},
+						"url": {
+							"raw": "{{gatewayUrl}}/api/v1/sos/{{sosId}}/resolve",
+							"host": [
+								"{{gatewayUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"sos",
+								"{{sosId}}",
+								"resolve"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "gatewayUrl",
+			"value": "http://localhost:8080",
+			"type": "string"
+		},
+		{
+			"key": "studentId",
+			"value": "ST003",
+			"type": "string"
+		},
+		{
+			"key": "sosId",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "jwtToken",
+			"value": "",
+			"type": "string"
+		}
+	]
+}

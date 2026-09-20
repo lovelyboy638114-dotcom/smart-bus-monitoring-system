@@ -3,6 +3,7 @@
 - `[x]` Database Migrations (Extend Account and CredentialAudit schemas)
 - `[x]` Unified auth package initialization (`backend/auth/`)
 - `[x]` Username normalization and role email generator
+- `[x]` Audit entire pipeline, isolate telemetry from incidents (driver.telemetry vs driver.alert.*), and enforce Spring Boot safety validation gates
 - `[x]` Password strength validators and temporary password format (`Name@Identifier`)
 - `[x]` Login lockouts and suspended account handlers
 - `[x]` Dry-run & Apply backfill script (`backfill_standardized_emails.py`)

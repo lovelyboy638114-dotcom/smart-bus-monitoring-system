@@ -27,20 +27,20 @@ public class Student {
     @Column(name = "busId", length = 50)
     private String busId;
 
-    @Column(nullable = false)
-    private int boarded;
+    @Column(name = "boarded")
+    private Integer boarded;
 
     @Column(name = "boardedTime", length = 50)
     private String boardedTime;
 
-    @Column(name = "reachedSchool", nullable = false)
-    private int reachedSchool;
+    @Column(name = "reachedSchool")
+    private Integer reachedSchool;
 
-    @Column(name = "boardedReturn", nullable = false)
-    private int boardedReturn;
+    @Column(name = "boardedReturn")
+    private Integer boardedReturn;
 
-    @Column(name = "reachedHome", nullable = false)
-    private int reachedHome;
+    @Column(name = "reachedHome")
+    private Integer reachedHome;
 
     @Column(nullable = false, length = 50)
     private String status;
@@ -123,6 +123,34 @@ public class Student {
     @Column(name = "id_card_version")
     private Integer idCardVersion;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "id_card_status", length = 50)
-    private String idCardStatus;
+    private IdCardStatus idCardStatus;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "id_card_failure_code", length = 50)
+    private IdCardFailureCode idCardFailureCode;
+
+    @Column(name = "id_card_failure_message", length = 255)
+    private String idCardFailureMessage;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "id_card_generation_stage", length = 50)
+    private IdCardGenerationStage idCardGenerationStage;
+
+    @Column(name = "id_card_generation_started_at")
+    private LocalDateTime idCardGenerationStartedAt;
+
+    @Column(name = "id_card_generation_completed_at")
+    private LocalDateTime idCardGenerationCompletedAt;
+
+    @Column(name = "id_card_checksum", length = 100)
+    private String idCardChecksum;
+
+    @Column(name = "id_card_file_size")
+    private Long idCardFileSize;
+
+    @Version
+    @Column(name = "version")
+    private Long version;
 }

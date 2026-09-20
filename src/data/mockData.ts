@@ -27,38 +27,38 @@ export const interpolatePath = (coords: Coordinate[], steps = 40): Coordinate[] 
 };
 
 
-// Stops Configuration
+// Stops Configuration matching SafeBus Database Routes
+// Route A (Ukkadam Loop) - Bus TN38AB1234
 export const bus1Stops: Stop[] = [
-  { name: "Gandhipuram Bus Stand", lat: 11.0168, lng: 76.9674, studentsWaiting: 1, pickupTime: "07:30 AM" },
-  { name: "RS Puram", lat: 11.0088, lng: 76.9498, studentsWaiting: 1, pickupTime: "07:45 AM" },
-  { name: "Saibaba Colony", lat: 11.0275, lng: 76.9427, studentsWaiting: 1, pickupTime: "08:00 AM" },
-  { name: "Vadavalli", lat: 11.0394, lng: 76.9002, studentsWaiting: 1, pickupTime: "08:15 AM" },
-  { name: "Thudiyalur", lat: 11.0820, lng: 76.9410, studentsWaiting: 1, pickupTime: "08:30 AM" },
-  { name: "Kavundampalayam", lat: 11.0505, lng: 76.9514, studentsWaiting: 1, pickupTime: "08:45 AM" },
-  { name: "GN Mills", lat: 11.0570, lng: 76.9445, studentsWaiting: 1, pickupTime: "09:00 AM" },
-  { name: "Karpagam College of Engineering", lat: 10.8801, lng: 77.0224, studentsWaiting: 0, pickupTime: "09:20 AM" }
-];
-
-export const bus2Stops: Stop[] = [
-  { name: "Hope College", lat: 11.0270, lng: 77.0288, studentsWaiting: 1, pickupTime: "07:30 AM" },
-  { name: "Peelamedu", lat: 11.0312, lng: 77.0364, studentsWaiting: 1, pickupTime: "07:45 AM" },
-  { name: "Singanallur", lat: 10.9985, lng: 77.0273, studentsWaiting: 1, pickupTime: "08:00 AM" },
-  { name: "Chinniyampalayam", lat: 11.0205, lng: 77.0488, studentsWaiting: 1, pickupTime: "08:15 AM" },
-  { name: "Neelambur", lat: 11.0405, lng: 77.0910, studentsWaiting: 1, pickupTime: "08:30 AM" },
-  { name: "Kalapatti", lat: 11.0695, lng: 77.0398, studentsWaiting: 1, pickupTime: "08:45 AM" },
-  { name: "Saravanampatti", lat: 11.0825, lng: 76.9994, studentsWaiting: 1, pickupTime: "09:00 AM" },
-  { name: "Karpagam College of Engineering", lat: 10.8801, lng: 77.0224, studentsWaiting: 0, pickupTime: "09:20 AM" }
-];
-
-export const bus3Stops: Stop[] = [
   { name: "Ukkadam Bus Stand", lat: 10.9925, lng: 76.9616, studentsWaiting: 1, pickupTime: "07:30 AM" },
-  { name: "Town Hall", lat: 10.9968, lng: 76.9635, studentsWaiting: 1, pickupTime: "07:45 AM" },
-  { name: "Podanur", lat: 10.9725, lng: 76.9715, studentsWaiting: 1, pickupTime: "08:00 AM" },
-  { name: "Sundarapuram", lat: 10.9595, lng: 76.9755, studentsWaiting: 1, pickupTime: "08:15 AM" },
-  { name: "Kuniyamuthur", lat: 10.9788, lng: 76.9552, studentsWaiting: 1, pickupTime: "08:30 AM" },
-  { name: "Eachanari", lat: 10.9060, lng: 76.9865, studentsWaiting: 1, pickupTime: "08:45 AM" },
-  { name: "Madukkarai", lat: 10.9055, lng: 76.9550, studentsWaiting: 1, pickupTime: "09:00 AM" },
-  { name: "Karpagam College of Engineering", lat: 10.8801, lng: 77.0224, studentsWaiting: 0, pickupTime: "09:20 AM" }
+  { name: "Sundarapuram", lat: 10.9595, lng: 76.9755, studentsWaiting: 1, pickupTime: "07:45 AM" },
+  { name: "Eachanari", lat: 10.9060, lng: 76.9865, studentsWaiting: 1, pickupTime: "08:00 AM" },
+  { name: "Karpagam Signal", lat: 10.8985, lng: 76.9950, studentsWaiting: 1, pickupTime: "08:15 AM" },
+  { name: "Malumichampatti", lat: 10.8872, lng: 77.0015, studentsWaiting: 1, pickupTime: "08:30 AM" },
+  { name: "Othakalmandapam", lat: 10.8750, lng: 77.0120, studentsWaiting: 2, pickupTime: "08:45 AM" },
+  { name: "Karpagam College of Engineering", lat: 10.8801, lng: 77.0224, studentsWaiting: 0, pickupTime: "09:00 AM" }
+];
+
+// Route B (Pollachi Loop) - Bus TN38CD5678
+export const bus2Stops: Stop[] = [
+  { name: "Pollachi Bus Stand", lat: 10.6580, lng: 77.0090, studentsWaiting: 1, pickupTime: "07:15 AM" },
+  { name: "Achipatti", lat: 10.6850, lng: 77.0125, studentsWaiting: 1, pickupTime: "07:30 AM" },
+  { name: "Kovilpalayam", lat: 10.7250, lng: 77.0160, studentsWaiting: 1, pickupTime: "07:45 AM" },
+  { name: "Thamaraikulam", lat: 10.7600, lng: 77.0180, studentsWaiting: 1, pickupTime: "08:00 AM" },
+  { name: "Kinathukadavu", lat: 10.8170, lng: 77.0205, studentsWaiting: 1, pickupTime: "08:15 AM" },
+  { name: "Millgate", lat: 10.8450, lng: 77.0215, studentsWaiting: 1, pickupTime: "08:30 AM" },
+  { name: "Myleripalayam", lat: 10.8650, lng: 77.0220, studentsWaiting: 1, pickupTime: "08:45 AM" },
+  { name: "Karpagam College of Engineering", lat: 10.8801, lng: 77.0224, studentsWaiting: 0, pickupTime: "09:00 AM" }
+];
+
+// Route C (Singanallur Loop) - Bus TN38EP9012
+export const bus3Stops: Stop[] = [
+  { name: "Singanallur", lat: 10.9985, lng: 77.0273, studentsWaiting: 1, pickupTime: "07:20 AM" },
+  { name: "Ondipudur", lat: 10.9940, lng: 77.0580, studentsWaiting: 1, pickupTime: "07:35 AM" },
+  { name: "Pattanam Pirivu", lat: 10.9650, lng: 77.0650, studentsWaiting: 1, pickupTime: "07:50 AM" },
+  { name: "Chinthamanipudur", lat: 10.9420, lng: 77.0610, studentsWaiting: 1, pickupTime: "08:10 AM" },
+  { name: "Chettipalayam", lat: 10.9020, lng: 77.0420, studentsWaiting: 2, pickupTime: "08:30 AM" },
+  { name: "Karpagam College of Engineering", lat: 10.8801, lng: 77.0224, studentsWaiting: 0, pickupTime: "09:00 AM" }
 ];
 
 

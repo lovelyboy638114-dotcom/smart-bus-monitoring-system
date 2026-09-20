@@ -3,14 +3,14 @@ import { useApp } from '../../context/AppContext';
 import { ShieldAlert, CheckCircle, Award, AlertOctagon } from 'lucide-react';
 
 const DriverSafety = () => {
-  // Mock safety compliance parameters
-  const driverBehavior = {
+  const { driverBehavior = {
     drowsiness: false,
     mobileUsage: false,
     seatbelt: true,
     smoking: false,
     safetyScore: 94
-  };
+  } } = useApp();
+
 
   const isDrowsy = driverBehavior.drowsiness;
   const isUsingPhone = driverBehavior.mobileUsage;

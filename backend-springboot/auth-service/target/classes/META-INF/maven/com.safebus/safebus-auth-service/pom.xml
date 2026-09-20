@@ -91,6 +91,11 @@
             <artifactId>safebus-common</artifactId>
             <version>1.0.0</version>
         </dependency>
+        <!-- SpringDoc OpenAPI Swagger UI -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+        </dependency>
         <!-- Lombok -->
         <dependency>
             <groupId>org.projectlombok</groupId>

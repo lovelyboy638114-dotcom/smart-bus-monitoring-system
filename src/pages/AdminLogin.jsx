@@ -3,42 +3,67 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Bus, Navigation, Eye, EyeOff, ShieldCheck, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import schoolBusHero from '../assets/school_bus_hero.jpg';
+import { API_BASE_URL } from '../config';
 
 const AdminLogin = () => {
   const { setUserRole } = useApp();
   const navigate = useNavigate();
 
-  const [username, setUsername] = useState('admin@happyjourney.ai');
-  const [password, setPassword] = useState('admin123');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
 
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleLoginSubmit = (e) => {
+  const handleLoginSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setSuccessMsg('');
+    setIsLoading(true);
 
     if (!username || !password) {
       setError('Please enter your administrator credentials.');
+      setIsLoading(false);
       return;
     }
 
-    // Verify against default admin account
-    const isAdminMatch = username.trim() === 'admin@happyjourney.ai' && password === 'admin123';
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: username.trim(),
+          password: password,
+          role: 'admin'
+        })
+      });
 
-    if (!isAdminMatch) {
-      setError('Invalid administrator email or password. Access Denied.');
-      return;
+      const resJson = await response.json();
+
+      if (response.ok && resJson.success && resJson.data) {
+        const loginData = resJson.data;
+        const fullName = loginData.fullName || 'Admin Control';
+        localStorage.setItem('safebus_user_fullname', fullName);
+        setUserRole('admin', fullName);
+        localStorage.setItem('safebus_user_username', username.trim());
+        localStorage.setItem('safebus_token', loginData.token);
+        localStorage.setItem('safebus_user_role', 'admin');
+
+        setSuccessMsg('Admin access verified! Opening Fleet Command...');
+        setTimeout(() => {
+          navigate('/admin/dashboard');
+        }, 850);
+      } else {
+        setError(resJson.message || 'Invalid administrator credentials. Access Denied.');
+      }
+    } catch (err) {
+      setError(err.message || 'Network error. Failed to reach backend API.');
+    } finally {
+      setIsLoading(false);
     }
-
-    setUserRole('admin');
-    setSuccessMsg('Admin access verified! Opening Fleet Command...');
-    setTimeout(() => {
-      navigate('/admin/dashboard');
-    }, 850);
   };
 
   return (
@@ -178,9 +203,10 @@ const AdminLogin = () => {
             {/* Submit Log In button */}
             <button
               type="submit"
-              className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black shadow-md shadow-blue-600/10 hover:shadow-lg transition-smooth uppercase tracking-widest mt-2"
+              disabled={isLoading}
+              className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-xl text-xs font-black shadow-md shadow-blue-600/10 hover:shadow-lg transition-smooth uppercase tracking-widest mt-2 flex items-center justify-center gap-2"
             >
-              Verify & Enter
+              {isLoading ? 'Verifying...' : 'Verify & Enter'}
             </button>
 
             {/* Link back to public portal login */}

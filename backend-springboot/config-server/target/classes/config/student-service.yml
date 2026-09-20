@@ -7,3 +7,19 @@ spring:
     port: 5672
     username: guest
     password: guest
+
+jwt:
+  secret: 9a62a983b772c8427f711200427b58a18df7b51b3d5b0d099903e1b7b75249f7
+  expiration: 900000        # 15 minutes (in milliseconds)
+  refresh-expiration: 604800000 # 7 days (in milliseconds)
+
+idcard:
+  storage-location: C:/SafeBus/uploads
+  max-versions: 5
+  archive-retention-days: 365
+  retry:
+    enabled: true
+    max-attempts: 3
+    initial-delay: 2s
+    multiplier: 2.5
+    max-delay: 30s

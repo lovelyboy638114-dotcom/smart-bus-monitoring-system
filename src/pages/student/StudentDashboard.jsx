@@ -1,21 +1,100 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
-import { QrCode, CheckSquare, Sparkles, HeartHandshake, Home, ShieldAlert } from 'lucide-react';
+import { QrCode, CheckSquare, Sparkles, HeartHandshake, Home, ShieldAlert, Loader2 } from 'lucide-react';
+import StudentIDCard from '../../components/StudentIDCard';
+import { API_BASE_URL } from '../../config';
 
 const StudentDashboard = () => {
   const { students, updateStudentProfile } = useApp();
 
-  const loggedInEmail = localStorage.getItem('safebus_user_username');
-  const student = students.find((s) => s.school_email === loggedInEmail) || students[0] || {
-    id: '',
-    name: 'Student',
-    rollNo: '',
-    class: '',
-    bloodGroup: '',
-    address: '',
-    medicalNotes: '',
-    boarded: false,
-    reachedSchool: false
+  const loggedInUser = (localStorage.getItem('safebus_user_username') || '').toLowerCase().trim();
+
+  // Find the authenticated student accurately
+  const student = useMemo(() => {
+    if (!students || students.length === 0) return null;
+
+    // 1. Direct match on school_email
+    const byEmail = students.find(s => {
+      const sEmail = (s.school_email || s.schoolEmail || '').toLowerCase().trim();
+      return sEmail && sEmail === loggedInUser;
+    });
+    if (byEmail) return byEmail;
+
+    // 2. Match by student ID or roll number
+    const byId = students.find(s => (s.id || '').toLowerCase().trim() === loggedInUser);
+    if (byId) return byId;
+
+    const byRoll = students.find(s => (s.rollNo || s.roll_no || '').toLowerCase().trim() === loggedInUser);
+    if (byRoll) return byRoll;
+
+    // 3. Username prefix / name substring match
+    const userClean = loggedInUser.split('@')[0].replace(/[^a-z0-9]/g, '');
+    const byName = students.find(s => {
+      const sIdClean = (s.id || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const sRollClean = (s.rollNo || s.roll_no || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const sNameClean = (s.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const firstName = (s.name || '').split(' ')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+
+      if (sIdClean && userClean.includes(sIdClean)) return true;
+      if (sRollClean && userClean.includes(sRollClean)) return true;
+      if (sNameClean && (userClean.includes(sNameClean) || sNameClean.includes(userClean))) return true;
+      if (firstName && userClean.includes(firstName)) return true;
+      return false;
+    });
+    if (byName) return byName;
+
+    return students[0];
+  }, [students, loggedInUser]);
+
+  // Live ID Card state
+  const [liveCardData, setLiveCardData] = useState(null);
+  const [isRegenerating, setIsRegenerating] = useState(false);
+
+  // Fetch live ID card details and trigger background generation if needed
+  const fetchCardDetails = async (stId) => {
+    const targetId = stId || student?.id;
+    if (!targetId) return;
+    try {
+      const token = localStorage.getItem('safebus_token');
+      const headers = { 'Authorization': token ? `Bearer ${token}` : '' };
+
+      let res = await fetch(`${API_BASE_URL}/api/v1/student/my-id-card`, { headers });
+      if (!res.ok) {
+        res = await fetch(`${API_BASE_URL}/api/v1/students/${targetId}/id-card`, { headers });
+      }
+      if (res.ok) {
+        const json = await res.json();
+        if (json && json.success && json.data) {
+          setLiveCardData(json.data);
+        }
+      }
+    } catch (err) {
+      console.error("[StudentDashboard] Failed to fetch ID card:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (student?.id) {
+      fetchCardDetails(student.id);
+    }
+  }, [student?.id]);
+
+  const handleRegenerate = async () => {
+    if (!student?.id) return;
+    setIsRegenerating(true);
+    try {
+      const token = localStorage.getItem('safebus_token');
+      await fetch(`${API_BASE_URL}/api/v1/students/${student.id}/regenerate-id-card`, {
+        method: 'POST',
+        headers: { 'Authorization': token ? `Bearer ${token}` : '' }
+      });
+      // Short delay then refresh card details
+      setTimeout(() => fetchCardDetails(student.id), 1200);
+    } catch (err) {
+      console.error("[StudentDashboard] Failed to regenerate ID card:", err);
+    } finally {
+      setIsRegenerating(false);
+    }
   };
 
   // Profile forms states
@@ -24,8 +103,28 @@ const StudentDashboard = () => {
   const [medicalNotes, setMedicalNotes] = useState('');
   const [success, setSuccess] = useState(false);
 
+  const activeCardStatus = liveCardData?.status || student?.idCardStatus || student?.id_card_status || 'GENERATED';
+  const activeCardStage = liveCardData?.stage || student?.idCardGenerationStage || student?.id_card_generation_stage || 'COMPLETED';
+
+  const idCardData = student ? {
+    student_id: student.id,
+    name: student.name,
+    rollNo: student.rollNo,
+    class_name: student.className || student.class || 'Grade 10',
+    admission_no: student.admissionNo || student.rollNo || 'N/A',
+    front_path: liveCardData?.front_path || student.idCardFrontPath || student.id_card_front_path || null,
+    back_path: liveCardData?.back_path || student.idCardBackPath || student.id_card_back_path || null,
+    pdf_path: liveCardData?.pdf_path || student.idCardPdfPath || student.id_card_pdf_path || null,
+    version: liveCardData?.version || student.idCardVersion || student.id_card_version || 1,
+    status: activeCardStatus,
+    stage: activeCardStage,
+    generated_at: liveCardData?.generated_at || student.idCardGeneratedAt || student.id_card_generated_at || null,
+    failure_code: liveCardData?.failure_code || student.idCardFailureCode || student.id_card_failure_code || null,
+    failure_message: liveCardData?.failure_message || student.idCardFailureMessage || student.id_card_failure_message || null,
+  } : null;
+
   // Sync state with dynamic student loaded from context API
-  React.useEffect(() => {
+  useEffect(() => {
     if (student) {
       setBloodGroup(student.bloodGroup || '');
       setAddress(student.address || '');
@@ -35,6 +134,7 @@ const StudentDashboard = () => {
 
   const handleProfileSubmit = (e) => {
     e.preventDefault();
+    if (!student?.id) return;
     updateStudentProfile(student.id, {
       bloodGroup,
       address,
@@ -43,6 +143,15 @@ const StudentDashboard = () => {
     setSuccess(true);
     setTimeout(() => setSuccess(false), 3000);
   };
+
+  if (!student) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[calc(100vh-4rem)] text-slate-500 gap-3">
+        <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+        <p className="text-sm font-bold">Loading student profile...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-6 p-6 max-w-2xl mx-auto h-[calc(100vh-4rem)] overflow-y-auto font-sans">
@@ -84,6 +193,13 @@ const StudentDashboard = () => {
           Roll No: #{student.rollNo} | Class {student.class || 'Grade 10'}
         </span>
       </div>
+
+      {/* Dynamic Digital PVC ID Card Badge Wallet */}
+      {idCardData && (
+        <div className="flex justify-center w-full">
+          <StudentIDCard studentData={idCardData} onRegenerate={handleRegenerate} />
+        </div>
+      )}
       
       {/* Route & Stop Details Card */}
       <div className="bg-white border border-slate-100 p-5 rounded-2xl shadow-soft">

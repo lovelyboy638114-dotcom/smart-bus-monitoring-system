@@ -1,0 +1,15 @@
+package com.safebus.common.model;
+
+public enum JourneyEventType {
+    JOURNEY_CREATED,
+    BUS_STARTED,
+    BUS_LEFT_DEPOT,
+    REACHED_STOP,
+    STUDENT_BOARDED,
+    STUDENT_DROPPED,
+    TRAFFIC_DELAY,
+    SOS_TRIGGERED,
+    ROUTE_CHANGED,
+    ARRIVED_SCHOOL,
+    JOURNEY_COMPLETED
+}

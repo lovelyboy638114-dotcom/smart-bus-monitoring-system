@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import LeafletMap from '../../components/LeafletMap.tsx';
-import StudentIDCard from '../../components/StudentIDCard.tsx';
 import { 
   Navigation, Compass, AlertTriangle, Send, BellRing, 
-  CheckCircle, UserCheck, ShieldAlert, X, ChevronRight, Bus
+  CheckCircle, UserCheck, ShieldAlert, X, ChevronRight, Bus,
+  Zap, MessageCircle, ExternalLink
 } from 'lucide-react';
 
 // Haversine formula to compute distance in km
@@ -62,33 +62,19 @@ const ParentDashboard: React.FC = () => {
 
   // Selected Student Profile
   const student = myChildren.find((s) => s.id === parentSelfStudentId) || myChildren[0];
-  
-  const idCardData = student ? {
-    student_id: student.id,
-    name: student.name,
-    rollNo: student.rollNo,
-    class_name: student.class || 'Grade 10',
-    admission_no: student.rollNo || student.id,
-    front_path: student.id_card_front_path || null,
-    back_path: student.id_card_back_path || null,
-    pdf_path: student.id_card_pdf_path || null,
-    version: student.id_card_version || 1,
-    status: student.id_card_status || 'ACTIVE',
-    generated_at: student.assigned_at ? new Date(student.assigned_at).toISOString() : null
-  } : null;
 
   const bus = student ? (buses.find((b) => b.id === student.assignedBus || b.id === (student.assignedBus === "Bus 1" ? "TN38AB1234" : student.assignedBus === "Bus 2" ? "TN38CD5678" : "TN38EP9012")) || buses[0]) : null;
   const busVal = bus || {
     id: 'Bus 1',
     name: 'Bus 1',
-    routeNumber: 'R-01 (North Loop)',
+    routeNumber: 'Route A (Ukkadam)',
     status: 'Stopped',
     speed: 0,
     eta: '--',
     battery: 92,
     currentStopIndex: 0,
-    path: [{ lat: 11.0168, lng: 76.9558 }],
-    stops: [{ name: 'Gandhipuram Bus Stand', lat: 11.0168, lng: 76.9558 }],
+    path: [{ lat: 10.9925, lng: 76.9616 }],
+    stops: [{ name: 'Ukkadam Bus Stand', lat: 10.9925, lng: 76.9616 }],
     color: '#2563eb',
     students: []
   };
@@ -112,10 +98,24 @@ const ParentDashboard: React.FC = () => {
   };
   const dynamicETA = calculateDynamicETA();
 
-  // Filter logs relevant to this student's bus
-  const relevantNotifications = student ? notifications.filter(n => 
-    n.message.includes(busVal.id) || n.message.includes(student.name) || n.message.includes(student.pickupStop)
-  ) : [];
+  // Strict Parent Scope: Filter logs relevant ONLY to this student's attendance & bus arrival
+  const relevantNotifications = student ? notifications.filter(n => {
+    // Strictly exclude driver incidents, driver analysis, fatigue, distraction, SOS, and aggregate summaries
+    if (n.category === 'DRIVER_INCIDENT' || n.category === 'DRIVER_ANALYSIS' || n.category === 'ATTENDANCE_SUMMARY' || n.category === 'SOS' || n.category === 'OPERATIONAL' || n.targetRole === 'ADMIN' || n.targetRole === 'DRIVER') {
+      return false;
+    }
+    const upper = (n.message || '').toUpperCase();
+    if (upper.includes("DRIVER ALERT") || upper.includes("DROWSY") || upper.includes("FATIGUE") || upper.includes("DISTRACT") || upper.includes("SOS EMERGENCY") || upper.includes("CRITICAL SOS") || upper.includes("ATTENDANCE:") || upper.includes("STRENGTH:")) {
+      return false;
+    }
+
+    // Must be student's attendance or bus arrival/ETA for their bus / stop / name
+    const isStudentMatch = n.studentId === student.id || n.message.includes(student.name);
+    const isBusArrival = (n.category === 'BUS_ARRIVAL' || upper.includes("BUS") || upper.includes("ARRIV")) && 
+      (n.busId === busVal.id || n.message.includes(busVal.id) || n.message.includes(student.pickupStop));
+
+    return isStudentMatch || isBusArrival;
+  }) : [];
 
   const handleSendDriverMessage = (e: React.FormEvent) => {
     e.preventDefault();
@@ -126,7 +126,7 @@ const ParentDashboard: React.FC = () => {
     
     sendDriverMessage(student.id, student.name, attendanceStatus, textMsg);
     
-    setSuccess(`Status update successfully sent to Driver ${bus.driverName}!`);
+    setSuccess(`Status update successfully sent to Driver ${busVal.driverName}!`);
     setAttendanceNote('');
     setTimeout(() => setSuccess(''), 4000);
   };
@@ -143,8 +143,8 @@ const ParentDashboard: React.FC = () => {
     submitComplaint(
       "Parent Profile",
       student.name,
-      bus.driverName,
-      bus.id,
+      busVal.driverName,
+      busVal.id,
       userText
     );
 
@@ -213,6 +213,46 @@ const ParentDashboard: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* 2KM Approaching Alert Banner with Direct WhatsApp Action */}
+      {student && distanceAway <= 2.15 && distanceAway >= 0.05 && bus && bus.status === 'Running' && (() => {
+        const phone = (student.parentContact || '7010846064').replace(/[^0-9]/g, '');
+        const intlPhone = phone.length === 10 ? '91' + phone : phone;
+        const msgText = `🚨 SafeBus Alert: Bus ${busVal.id} is approximately ${distanceAway.toFixed(2)} km away from ${student.pickupStop} and is expected to arrive in about ${dynamicETA} for ${student.name}.`;
+        const waLink = `https://api.whatsapp.com/send?phone=${intlPhone}&text=${encodeURIComponent(msgText)}`;
+
+        return (
+          <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white p-4 sm:p-5 rounded-2xl shadow-lg border border-emerald-400/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-fade-in">
+            <div className="flex items-start sm:items-center gap-3.5">
+              <div className="p-2.5 bg-white/20 rounded-xl shrink-0">
+                <Zap className="w-6 h-6 text-yellow-300 fill-yellow-300 animate-bounce" />
+              </div>
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-200 block">
+                  🚨 Bus Approaching Alert (Within 2 KM Geofence)
+                </span>
+                <h3 className="text-sm sm:text-base font-black text-white mt-0.5">
+                  Bus {busVal.id} is {distanceAway.toFixed(2)} km away from {student.pickupStop}!
+                </h3>
+                <p className="text-xs text-emerald-100 font-semibold mt-0.5">
+                  Expected Arrival: <span className="text-yellow-300 font-bold font-mono">~{dynamicETA}</span> (Speed: {bus.speed} km/h)
+                </p>
+              </div>
+            </div>
+
+            <a
+              href={waLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full sm:w-auto px-4 py-3 bg-white hover:bg-emerald-50 active:scale-95 text-emerald-800 font-black rounded-xl text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-md shrink-0 transition-all"
+            >
+              <MessageCircle className="w-4 h-4 fill-emerald-600 text-emerald-600 shrink-0" />
+              <span>Open WhatsApp Alert</span>
+              <ExternalLink className="w-3.5 h-3.5 opacity-70 shrink-0" />
+            </a>
+          </div>
+        );
+      })()}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
@@ -403,15 +443,8 @@ const ParentDashboard: React.FC = () => {
         {/* Right column: Interactive Map and Notification feed */}
         <div className="lg:col-span-2 space-y-4">
           <div className="h-[300px]">
-            <LeafletMap buses={buses} selectedBusId={bus.id} />
+            <LeafletMap buses={buses} selectedBusId={busVal.id} />
           </div>
-
-          {/* Child ID Badge Card */}
-          {idCardData && (
-            <div className="flex justify-center bg-white border border-slate-200 p-4 rounded-2xl shadow-sm overflow-hidden">
-              <StudentIDCard studentData={idCardData} />
-            </div>
-          )}
 
           {/* Student Notifications History panel */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden text-left flex flex-col min-h-[180px]">
@@ -426,12 +459,32 @@ const ParentDashboard: React.FC = () => {
                   No alerts received for this route yet.
                 </p>
               ) : (
-                relevantNotifications.map((notif) => (
-                  <div key={notif.id} className="p-2.5 border border-slate-100 bg-slate-50/50 rounded-xl flex justify-between text-xs">
-                    <span className="font-semibold text-slate-700">{notif.message}</span>
-                    <span className="text-[9px] font-mono text-slate-400 font-bold shrink-0">{notif.timestamp}</span>
-                  </div>
-                ))
+                relevantNotifications.map((notif) => {
+                  const isArrival = notif.category === 'BUS_ARRIVAL' || notif.message.includes('Approaching') || notif.message.includes('km away');
+                  const waUrl = notif.whatsappUrl || (isArrival && student ? `https://api.whatsapp.com/send?phone=91${(student.parentContact || '7010846064').replace(/[^0-9]/g, '')}&text=${encodeURIComponent(notif.message)}` : null);
+
+                  return (
+                    <div key={notif.id} className="p-2.5 border border-slate-100 bg-slate-50/50 rounded-xl flex flex-col gap-1.5 text-xs">
+                      <div className="flex justify-between items-start gap-2">
+                        <span className="font-semibold text-slate-700">{notif.message}</span>
+                        <span className="text-[9px] font-mono text-slate-400 font-bold shrink-0">{notif.timestamp}</span>
+                      </div>
+                      {waUrl && (
+                        <div className="pt-1 border-t border-slate-200/50 flex justify-end">
+                          <a
+                            href={waUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 text-[10px] font-black text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-200 transition-colors shadow-xs"
+                          >
+                            <MessageCircle className="w-3 h-3 fill-emerald-600 text-emerald-600" />
+                            <span>Open WhatsApp</span>
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
               )}
             </div>
           </div>

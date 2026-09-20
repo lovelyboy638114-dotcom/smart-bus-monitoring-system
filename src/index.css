@@ -55,6 +55,28 @@
   body {
     font-family: 'Outfit', sans-serif;
     @apply bg-[#F8FAFC] text-slate-900 antialiased;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  /* Prevent tap highlight and accidental text carets on general UI */
+  *, *::before, *::after {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Allow text typing cursor and selection strictly inside input fields */
+  input, textarea, [contenteditable="true"] {
+    -webkit-user-select: text !important;
+    user-select: text !important;
+    cursor: text !important;
+  }
+
+  /* All buttons, links, tabs, and interactive elements */
+  button, a, [role="button"], select, .cursor-pointer {
+    -webkit-user-select: none !important;
+    user-select: none !important;
+    cursor: pointer !important;
   }
 }
 

@@ -7,8 +7,13 @@ import org.springframework.cloud.client.loadbalancer.LoadBalanced;
 import org.springframework.context.annotation.Bean;
 import org.springframework.web.client.RestTemplate;
 
+import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.scheduling.annotation.EnableScheduling;
+
 @SpringBootApplication
 @EnableDiscoveryClient
+@EnableAsync
+@EnableScheduling
 public class TransportApplication {
     public static void main(String[] args) {
         SpringApplication.run(TransportApplication.class, args);

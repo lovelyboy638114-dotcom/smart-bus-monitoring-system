@@ -1,3 +1,4 @@
+com\safebus\auth\config\OpenApiConfig.class
 com\safebus\auth\security\service\JwtService.class
 com\safebus\auth\account\dto\LoginResponse$LoginResponseBuilder.class
 com\safebus\auth\account\entity\Account.class

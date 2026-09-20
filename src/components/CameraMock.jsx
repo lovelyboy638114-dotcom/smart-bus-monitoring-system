@@ -1,10 +1,19 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Eye, ShieldAlert, Award, Volume2, UserCheck, AlertTriangle, Video, VideoOff } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { playAlertBuzzer, unlockAudio } from '../utils/buzzer';
+import { acquireSharedWebcam, releaseSharedWebcam } from '../utils/webcamStream';
 
-const CameraMock = ({ busId = "TN38AB1234", driverName = "Ramesh Kumar", defaultSafetyScore = 85, hideSimulators = false }) => {
-  const { triggerAlert, driverBehavior, backendConnected } = useApp();
-  
+const CameraMock = ({ 
+  busId = "TN38AB1234", 
+  driverName = "Ramesh Kumar", 
+  defaultSafetyScore = 85, 
+  hideSimulators = false,
+  isActiveWebcam = true,
+  onSelectActive = null
+}) => {
+  const { triggerAlert, allDriverBehaviors, backendConnected } = useApp();
+
   const [behavior, setBehavior] = useState({
     drowsiness: false,
     mobileUsage: false,
@@ -15,95 +24,198 @@ const CameraMock = ({ busId = "TN38AB1234", driverName = "Ramesh Kumar", default
     safetyScore: defaultSafetyScore
   });
 
-  // Sync behavior parameters dynamically when Python Flask backend is active
-  useEffect(() => {
-    if (backendConnected && busId === "TN38AB1234") {
-      setBehavior({
-        drowsiness: driverBehavior.drowsiness,
-        mobileUsage: driverBehavior.mobileUsage,
-        yawning: driverBehavior.yawning,
-        seatbelt: driverBehavior.seatbelt,
-        smoking: driverBehavior.smoking,
-        distraction: driverBehavior.distraction,
-        safetyScore: driverBehavior.safetyScore
-      });
-    }
-  }, [backendConnected, driverBehavior, busId]);
-
   const [dots, setDots] = useState([]);
   const [webcamActive, setWebcamActive] = useState(false);
   const [cameraError, setCameraError] = useState(false);
   const [meshOffset, setMeshOffset] = useState({ x: 0, y: 0 });
+  const [processedImg, setProcessedImg] = useState(null);
+  const [cvTelemetry, setCvTelemetry] = useState(null);
+  const [isBuzzerActive, setIsBuzzerActive] = useState(false);
 
   const videoRef = useRef(null);
   const streamRef = useRef(null);
+  const lastAlertRef = useRef('NORMAL');
+  const isProcessingRef = useRef(false);
+
+  // Synchronize buzzer sound active animation across components
+  useEffect(() => {
+    const handleBuzzerState = (e) => {
+      setIsBuzzerActive(e.detail?.active || false);
+    };
+    window.addEventListener('safebus-buzzer-state', handleBuzzerState);
+    return () => window.removeEventListener('safebus-buzzer-state', handleBuzzerState);
+  }, []);
+
+  // Sync behavior parameters dynamically when Python Flask backend is active
+  useEffect(() => {
+    if (backendConnected && allDriverBehaviors && allDriverBehaviors[busId]) {
+      const busBehavior = allDriverBehaviors[busId];
+      setBehavior({
+        drowsiness: busBehavior.drowsiness || false,
+        mobileUsage: busBehavior.mobileUsage || false,
+        yawning: busBehavior.yawning || false,
+        seatbelt: busBehavior.seatbelt !== undefined ? busBehavior.seatbelt : true,
+        smoking: busBehavior.smoking || false,
+        distraction: busBehavior.distraction || false,
+        safetyScore: busBehavior.safetyScore || defaultSafetyScore
+      });
+    }
+  }, [backendConnected, allDriverBehaviors, busId, defaultSafetyScore]);
 
   // Generate face mesh tracking dots
   useEffect(() => {
     const list = [];
-    // Eye left
     for (let i = 0; i < 6; i++) {
       list.push({ x: 130 + Math.sin(i) * 12, y: 95 + Math.cos(i) * 6, type: 'eye' });
     }
-    // Eye right
     for (let i = 0; i < 6; i++) {
       list.push({ x: 210 + Math.sin(i) * 12, y: 95 + Math.cos(i) * 6, type: 'eye' });
     }
-    // Nose bridge
     list.push({ x: 170, y: 105 });
     list.push({ x: 170, y: 120 });
     list.push({ x: 170, y: 135 });
-    // Mouth outline
     for (let i = 0; i < 8; i++) {
       list.push({ x: 170 + Math.sin(i * 0.8) * 18, y: 155 + Math.cos(i * 0.8) * 8, type: 'mouth' });
     }
-    // Face outline
     for (let i = 0; i < 15; i++) {
       list.push({ x: 170 + Math.sin(i * 0.25 - 1.8) * 70, y: 125 + Math.cos(i * 0.25 - 1.8) * 75, type: 'outline' });
     }
     setDots(list);
   }, []);
 
-  // WebCam Stream Starter
-  const startWebcam = async () => {
-    setCameraError(false);
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { width: 640, height: 360, facingMode: 'user' } 
-      });
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        setWebcamActive(true);
-      }
-    } catch (err) {
-      setCameraError(true);
-      setWebcamActive(false);
-    }
-  };
-
-  // WebCam Stream Stopper
-  const stopWebcam = () => {
-    if (streamRef.current) {
-      const tracks = streamRef.current.getTracks();
-      tracks.forEach(track => track.stop());
-      streamRef.current = null;
-    }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-    setWebcamActive(false);
-  };
-
+  // Connect to shared camera stream only for the active driver camera
   useEffect(() => {
-    startWebcam();
-    return () => {
-      if (streamRef.current) {
-        const tracks = streamRef.current.getTracks();
-        tracks.forEach(track => track.stop());
+    let isMounted = true;
+
+    if (!isActiveWebcam) {
+      setWebcamActive(false);
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
       }
+      return;
+    }
+
+    acquireSharedWebcam()
+      .then(stream => {
+        if (!isMounted) return;
+        streamRef.current = stream;
+        setWebcamActive(true);
+        setCameraError(false);
+
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.onloadedmetadata = () => {
+            videoRef.current?.play().catch(() => {});
+          };
+          videoRef.current.play().catch(() => {});
+        }
+      })
+      .catch(err => {
+        if (!isMounted) return;
+        console.warn(`Camera access not granted for ${busId}:`, err);
+        setCameraError(true);
+        setWebcamActive(false);
+      });
+
+    return () => {
+      isMounted = false;
+      releaseSharedWebcam();
     };
-  }, []);
+  }, [busId, isActiveWebcam]);
+
+  // Real-time frame processing loop with OpenCV Microservice for active driver camera
+  useEffect(() => {
+    if (!webcamActive || !isActiveWebcam) return;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 640;
+    canvas.height = 480;
+    const ctx = canvas.getContext('2d');
+
+    // Stagger sampling slightly so all 3 cameras send smoothly without server contention
+    const sampleDelay = busId === 'TN38AB1234' ? 200 : busId === 'TN38CD5678' ? 260 : 320;
+
+    const sampleInterval = setInterval(async () => {
+      if (!videoRef.current || videoRef.current.paused || videoRef.current.ended) return;
+      if (isProcessingRef.current) return;
+      isProcessingRef.current = true;
+
+      try {
+        ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+        const frameB64 = canvas.toDataURL('image/jpeg', 0.70);
+
+        const res = await fetch('http://localhost:5001/process_frame', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            frame: frameB64,
+            busId: busId,
+            driverId: `${driverName.toLowerCase().replace(/\s+/g, '')}@happyjourney.ai`
+          })
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          setCvTelemetry(data);
+          if (data.processedImage) {
+            setProcessedImg(data.processedImage);
+          }
+
+          const isDrowsyAlert = data.status === 'DROWSINESS_DETECTED' || data.status === 'DROWSY';
+          const isDistractAlert = data.status === 'DISTRACTION_DETECTED' || data.status === 'LOOKING_AWAY';
+
+          // Confirmed Alert Trigger (Web Audio Buzzer for strictly 3 seconds)
+          if (isDrowsyAlert) {
+            if (lastAlertRef.current !== 'DROWSINESS_DETECTED') {
+              lastAlertRef.current = 'DROWSINESS_DETECTED';
+              const buzzerPlayed = playAlertBuzzer(3.0);
+              if (buzzerPlayed) {
+                triggerAlert?.({
+                  type: 'DROWSINESS',
+                  busId: busId,
+                  message: `🚨 Driver drowsiness alert — buzzer activated (${busId}).`,
+                  timestamp: new Date().toLocaleTimeString(),
+                  targetRole: 'ADMIN',
+                  category: 'DRIVER_INCIDENT'
+                });
+              }
+            }
+            setBehavior(prev => ({ ...prev, drowsiness: true, safetyScore: 60 }));
+          } else if (isDistractAlert) {
+            if (lastAlertRef.current !== 'DISTRACTION_DETECTED') {
+              lastAlertRef.current = 'DISTRACTION_DETECTED';
+              const buzzerPlayed = playAlertBuzzer(3.0);
+              if (buzzerPlayed) {
+                triggerAlert?.({
+                  type: 'DISTRACTION',
+                  busId: busId,
+                  message: `⚠ Driver distraction alert — buzzer activated (${busId}).`,
+                  timestamp: new Date().toLocaleTimeString(),
+                  targetRole: 'ADMIN',
+                  category: 'DRIVER_INCIDENT'
+                });
+              }
+            }
+            setBehavior(prev => ({ ...prev, distraction: true, safetyScore: 75 }));
+          } else if (data.status === 'NORMAL' || data.status === 'NO_DRIVER_FACE_DETECTED') {
+            lastAlertRef.current = data.status;
+            setBehavior(prev => ({
+              ...prev,
+              drowsiness: false,
+              distraction: false,
+              safetyScore: 95
+            }));
+          }
+        }
+      } catch (err) {
+        // Fallback gracefully if microservice is temporarily offline
+      } finally {
+        isProcessingRef.current = false;
+      }
+    }, sampleDelay);
+
+    return () => clearInterval(sampleInterval);
+  }, [webcamActive, busId, driverName, triggerAlert]);
 
   // Animate dots slightly to simulate active facial tracking (Jitter + Floating offset)
   useEffect(() => {
@@ -147,19 +259,7 @@ const CameraMock = ({ busId = "TN38AB1234", driverName = "Ramesh Kumar", default
 
       updated.safetyScore = Math.max(10, score);
 
-      // Trigger Alerts dynamically to Admin console
-      if (key === 'drowsiness' && updated.drowsiness) {
-        triggerAlert("Driver Drowsiness Alert", "High", busId, driverName);
-      }
-      if (key === 'mobileUsage' && updated.mobileUsage) {
-        triggerAlert("Driver Distracted (Mobile)", "High", busId, driverName);
-      }
-      if (key === 'smoking' && updated.smoking) {
-        triggerAlert("Driver Smoking Detected", "High", busId, driverName);
-      }
-      if (key === 'seatbelt' && !updated.seatbelt) {
-        triggerAlert("Driver Seatbelt Unbuckled", "Medium", busId, driverName);
-      }
+      // Simulated warning alert triggers have been disabled to ensure only real webcam CV results are enqueued
 
       return updated;
     });
@@ -182,8 +282,36 @@ const CameraMock = ({ busId = "TN38AB1234", driverName = "Ramesh Kumar", default
           }`}
         />
 
+        {/* OpenCV Processed Real-time Image with Eye Bounding Boxes & Landmarks */}
+        {processedImg && webcamActive && (
+          <img 
+            src={processedImg} 
+            alt="OpenCV Eye Detection Feed" 
+            className="absolute inset-0 w-full h-full object-cover z-10" 
+          />
+        )}
+
+        {/* Inactive Standby Card with Remote AI Status */}
+        {!isActiveWebcam && (
+          <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-[2px] flex flex-col items-center justify-center p-4 text-center z-15">
+            <VideoOff className="w-8 h-8 text-slate-400 mb-2 opacity-70" />
+            <span className="text-[11px] font-black text-slate-200 uppercase tracking-widest">Fleet Telemetry Standby</span>
+            <span className="text-[9px] text-slate-400 mt-1 max-w-[210px] leading-relaxed">
+              Telemetry monitoring active. Laptop webcam is mapped to active primary bus.
+            </span>
+            {onSelectActive && (
+              <button
+                onClick={onSelectActive}
+                className="mt-3 px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[9px] font-extrabold uppercase tracking-wider transition-all cursor-pointer shadow-md flex items-center gap-1"
+              >
+                <Video className="w-3 h-3" /> Connect Laptop Webcam
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Mock Driver Face Silhouette Graphic */}
-        {!webcamActive && (
+        {isActiveWebcam && !webcamActive && (
           <div className="relative w-full h-full flex items-center justify-center pointer-events-none opacity-40 z-0">
             <svg viewBox="0 0 340 220" className="w-48 h-auto fill-none stroke-blue-500/20 stroke-1">
               <path d="M 50,220 C 50,180 120,180 170,180 C 220,180 290,180 290,220" strokeWidth="2" />
@@ -196,68 +324,137 @@ const CameraMock = ({ busId = "TN38AB1234", driverName = "Ramesh Kumar", default
         <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.02)_50%,rgba(0,0,0,0.1)_50%)] bg-[size:100%_4px] pointer-events-none z-10 opacity-40" />
         
         {/* Camera HUD Indicator */}
-        <div className="absolute top-3 left-3 z-20 flex items-center gap-1.5">
+        <div className="absolute top-2.5 left-2.5 z-20 flex items-center gap-1.5">
           <span className={`w-2 h-2 rounded-full ${webcamActive ? 'bg-emerald-500 animate-ping' : 'bg-slate-400'}`} />
           <span className="px-1.5 py-0.5 text-[8px] font-extrabold tracking-widest text-white bg-slate-900/80 border border-slate-700/30 rounded uppercase font-mono">
             {busId} / {driverName.split(' ')[0]}
           </span>
+          {webcamActive && (
+            <span className="px-1.5 py-0.5 text-[8px] font-black rounded uppercase tracking-wider bg-emerald-600/90 text-white border border-emerald-400/40">
+              OpenCV Active
+            </span>
+          )}
         </div>
 
-        {/* Bounding Box Overlay */}
-        <svg className="absolute inset-0 w-full h-full z-20 pointer-events-none" viewBox="0 0 340 220" preserveAspectRatio="none">
-          {/* Eyes box */}
-          <rect
-            x={110 + meshOffset.x}
-            y={80 + meshOffset.y}
-            width="120"
-            height="32"
-            fill="none"
-            stroke={isDrowsy ? "#ef4444" : isDistracted ? "#f59e0b" : "#10b981"}
-            strokeWidth="1.5"
-            className="transition-all duration-100"
-          />
-          <text 
-            x={112 + meshOffset.x} 
-            y={76 + meshOffset.y} 
-            className={`text-[7px] font-extrabold uppercase ${isDrowsy ? 'fill-rose-600' : isDistracted ? 'fill-amber-500' : 'fill-emerald-600'}`}
+        {/* Test Buzzer Button */}
+        <div className="absolute top-2.5 right-2.5 z-20 flex items-center gap-1.5">
+          <button
+            onClick={() => {
+              unlockAudio();
+              playAlertBuzzer(3.0);
+            }}
+            className="px-2 py-0.5 bg-blue-600/90 hover:bg-blue-600 text-white rounded text-[8px] font-extrabold uppercase tracking-wider flex items-center gap-1 shadow-sm transition-all backdrop-blur-sm cursor-pointer"
+            title="Test Cabin Buzzer Alarm Sound"
           >
-            {isDrowsy ? "EYE CLOSURE" : isDistracted ? "Gaze Distracted" : "Gaze OK"}
-          </text>
+            <Volume2 className="w-2.5 h-2.5" /> Test Buzzer
+          </button>
+        </div>
 
-          {/* Mouth box */}
-          <rect
-            x={140 + meshOffset.x}
-            y={140 + meshOffset.y}
-            width="60"
-            height="26"
-            fill="none"
-            stroke={isYawning ? "#ef4444" : "#10b981"}
-            strokeWidth="1.5"
-          />
-        </svg>
+        {/* Active Buzzer Alarm Visual Banner */}
+        {isBuzzerActive && (
+          <div className="absolute top-2 left-1/2 -translate-x-1/2 z-30 bg-rose-600 border border-white text-white px-3 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-xl animate-bounce pointer-events-none">
+            <Volume2 className="w-3 h-3 animate-pulse text-yellow-300" />
+            <span>🚨 CABIN BUZZER SOUNDING (3s)</span>
+          </div>
+        )}
 
-        {/* Face mesh dots */}
-        <div className="absolute inset-0 pointer-events-none z-20">
-          <svg className="w-full h-full" viewBox="0 0 340 220" preserveAspectRatio="none">
-            {dots.map((d, idx) => {
-              const jX = d.jitterX || 0;
-              const jY = d.jitterY || 0;
-              let dotColor = "fill-emerald-400";
-              if (d.type === 'eye' && isDrowsy) dotColor = "fill-rose-500";
-              else if (d.type === 'eye' && isDistracted) dotColor = "fill-amber-400";
-              else if (d.type === 'mouth' && isYawning) dotColor = "fill-rose-500";
+        {/* Live Timer HUD Overlays (for Drowsiness & Distraction countdowns) */}
+        {cvTelemetry && (
+          <div className="absolute top-9 left-2.5 z-20 flex flex-col gap-1 pointer-events-none">
+            {cvTelemetry.drowsyDuration > 0 && (
+              <div className="bg-rose-950/90 border border-rose-600/80 px-2 py-0.5 rounded text-[8px] font-bold text-rose-200 flex items-center gap-1.5 backdrop-blur-sm shadow">
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping" />
+                <span>EYES CLOSED: {cvTelemetry.drowsyDuration.toFixed(1)}s / 3.0s</span>
+                <div className="w-12 h-1 bg-slate-800 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-rose-500 transition-all duration-150" 
+                    style={{ width: `${Math.min(100, (cvTelemetry.drowsyDuration / 3.0) * 100)}%` }} 
+                  />
+                </div>
+              </div>
+            )}
 
-              return (
-                <circle
-                  key={idx}
-                  cx={d.x + meshOffset.x + jX}
-                  cy={d.y + meshOffset.y + jY}
-                  r={d.type === 'eye' || d.type === 'mouth' ? "1.5" : "1.0"}
-                  className={`${dotColor} opacity-70`}
-                />
-              );
-            })}
+            {cvTelemetry.distractDuration > 0 && (
+              <div className="bg-amber-950/90 border border-amber-500/80 px-2 py-0.5 rounded text-[8px] font-bold text-amber-200 flex items-center gap-1.5 backdrop-blur-sm shadow">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+                <span>LOOKING AWAY ({cvTelemetry.direction || 'SIDE'}): {cvTelemetry.distractDuration.toFixed(1)}s / 5.0s</span>
+                <div className="w-12 h-1 bg-slate-800 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-amber-400 transition-all duration-150" 
+                    style={{ width: `${Math.min(100, (cvTelemetry.distractDuration / 5.0) * 100)}%` }} 
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Simulated Bounding Box Overlay for non-camera buses */}
+        {!processedImg && (
+          <svg className="absolute inset-0 w-full h-full z-20 pointer-events-none" viewBox="0 0 340 220" preserveAspectRatio="none">
+            <rect
+              x={110 + meshOffset.x}
+              y={80 + meshOffset.y}
+              width="120"
+              height="32"
+              fill="none"
+              stroke={isDrowsy ? "#ef4444" : isDistracted ? "#f59e0b" : "#10b981"}
+              strokeWidth="1.5"
+              className="transition-all duration-100"
+            />
+            <text 
+              x={112 + meshOffset.x} 
+              y={76 + meshOffset.y} 
+              className={`text-[7px] font-extrabold uppercase ${isDrowsy ? 'fill-rose-600' : isDistracted ? 'fill-amber-500' : 'fill-emerald-600'}`}
+            >
+              {isDrowsy ? "EYE CLOSURE" : isDistracted ? "Gaze Distracted" : "Gaze OK"}
+            </text>
+
+            <rect
+              x={140 + meshOffset.x}
+              y={140 + meshOffset.y}
+              width="60"
+              height="26"
+              fill="none"
+              stroke={isYawning ? "#ef4444" : "#10b981"}
+              strokeWidth="1.5"
+            />
           </svg>
+        )}
+
+        {/* Simulated Face mesh dots for non-camera buses */}
+        {!processedImg && (
+          <div className="absolute inset-0 pointer-events-none z-20">
+            <svg className="w-full h-full" viewBox="0 0 340 220" preserveAspectRatio="none">
+              {dots.map((d, idx) => {
+                const jX = d.jitterX || 0;
+                const jY = d.jitterY || 0;
+                let dotColor = "fill-emerald-400";
+                if (d.type === 'eye' && isDrowsy) dotColor = "fill-rose-500";
+                else if (d.type === 'eye' && isDistracted) dotColor = "fill-amber-400";
+                else if (d.type === 'mouth' && isYawning) dotColor = "fill-rose-500";
+
+                return (
+                  <circle
+                    key={idx}
+                    cx={d.x + meshOffset.x + jX}
+                    cy={d.y + meshOffset.y + jY}
+                    r={d.type === 'eye' || d.type === 'mouth' ? "1.5" : "1.0"}
+                    className={`${dotColor} opacity-70`}
+                  />
+                );
+              })}
+            </svg>
+          </div>
+        )}
+
+        {/* Bottom telematics bar */}
+        <div className="absolute bottom-1.5 left-2 right-2 z-20 flex justify-between items-center text-[8.5px] font-mono text-slate-300 bg-slate-900/80 px-2 py-0.5 rounded backdrop-blur-sm">
+          <span>EAR: {cvTelemetry && cvTelemetry.ear ? cvTelemetry.ear.toFixed(2) : isDrowsy ? '0.14 (CLOSED)' : '0.31 (OPEN)'}</span>
+          <span>HEAD: {cvTelemetry && cvTelemetry.direction ? cvTelemetry.direction : isDistracted ? 'SIDEWAY' : 'CENTER'}</span>
+          <span className={`font-bold ${isDrowsy || isDistracted ? 'text-rose-400 animate-pulse' : 'text-emerald-400'}`}>
+            {isDrowsy ? 'DROWSY' : isDistracted ? 'DISTRACTED' : 'ATTENTIVE'}
+          </span>
         </div>
       </div>
 

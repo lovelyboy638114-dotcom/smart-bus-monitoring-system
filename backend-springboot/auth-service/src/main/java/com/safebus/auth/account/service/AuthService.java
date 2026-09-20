@@ -35,15 +35,19 @@ public class AuthService {
         Account account = accountRepository.findByUsername(request.getUsername())
                 .orElseThrow(() -> new RuntimeException("Invalid username or password"));
 
-        // Check Lock status
-        if ("LOCKED".equals(account.getAccountStatus())) {
-            if (account.getLockTime() != null && account.getLockTime().plusMinutes(15).isBefore(LocalDateTime.now())) {
-                account.setAccountStatus("ACTIVE");
-                account.setFailedLoginAttempts(0);
-                account.setLockTime(null);
-                accountRepository.save(account);
+        // Check Account Status
+        if (!"ACTIVE".equals(account.getAccountStatus())) {
+            if ("LOCKED".equals(account.getAccountStatus())) {
+                if (account.getLockTime() != null && account.getLockTime().plusMinutes(15).isBefore(LocalDateTime.now())) {
+                    account.setAccountStatus("ACTIVE");
+                    account.setFailedLoginAttempts(0);
+                    account.setLockTime(null);
+                    accountRepository.save(account);
+                } else {
+                    throw new RuntimeException("Account is locked due to multiple failed login attempts. Try again in 15 minutes.");
+                }
             } else {
-                throw new RuntimeException("Account is locked due to multiple failed login attempts. Try again in 15 minutes.");
+                throw new RuntimeException("Account is not active.");
             }
         }
 
@@ -77,9 +81,10 @@ public class AuthService {
         auditRepository.save(audit);
 
         // Access and Refresh Tokens
+        String normalizedRole = account.getRole().toUpperCase();
         String token = jwtService.generateToken(
             account.getUsername(),
-            account.getRole(),
+            normalizedRole,
             account.getFullName(),
             account.isMustChangePassword()
         );
@@ -88,7 +93,7 @@ public class AuthService {
         return LoginResponse.builder()
                 .token(token)
                 .refreshToken(refreshToken)
-                .role(account.getRole())
+                .role(normalizedRole)
                 .username(account.getUsername())
                 .fullName(account.getFullName())
                 .mustChangePassword(account.isMustChangePassword())

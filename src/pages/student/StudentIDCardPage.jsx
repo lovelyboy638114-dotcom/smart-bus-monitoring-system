@@ -9,29 +9,40 @@ const StudentIDCardPage = () => {
   const [error, setError] = useState('');
 
   useEffect(() => {
+    let intervalId;
+
     const fetchCard = async () => {
       try {
-        const username = localStorage.getItem('safebus_user_username') || 'student@happyjourney.ai';
+        const token = localStorage.getItem('safebus_token');
         const response = await fetch(`${API_BASE_URL}/api/v1/student/my-id-card`, {
           headers: {
-            'X-User-Role': 'student',
-            'X-User-Username': username
+            'Authorization': token ? `Bearer ${token}` : ''
           }
         });
         const resJson = await response.json();
         
         if (response.ok && resJson.success) {
           setCardData(resJson.data);
+          const status = resJson.data.status || '';
+          if (status === 'GENERATED' || status === 'FAILED' || status === 'ACTIVE') {
+            clearInterval(intervalId);
+          }
         } else {
           setError(resJson.message || 'Failed to retrieve your student ID Card details.');
+          clearInterval(intervalId);
         }
       } catch (err) {
         setError('Network error occurred. Please verify backend connectivity.');
+        clearInterval(intervalId);
       } finally {
         setLoading(false);
       }
     };
+
     fetchCard();
+    intervalId = setInterval(fetchCard, 3000);
+
+    return () => clearInterval(intervalId);
   }, []);
 
   return (

@@ -35,6 +35,14 @@ export interface Student {
   pickup_distance?: number;
   assignment_status?: string;
   assigned_at?: string;
+  boarded?: boolean;
+  boardedTime?: string | null;
+  reachedSchool?: boolean;
+  boardedReturn?: boolean;
+  returnBoardedTime?: string | null;
+  reachedHome?: boolean;
+  morningAttendance?: 'Present' | 'Absent';
+  returnAttendance?: 'Present' | 'Absent';
 }
 
 export interface Driver {
@@ -70,4 +78,11 @@ export interface SystemNotification {
   message: string;
   type: 'info' | 'warning' | 'error' | 'success';
   timestamp: string;
+  targetRole?: 'ALL' | 'ADMIN' | 'PARENT' | 'DRIVER';
+  category?: 'ATTENDANCE' | 'ATTENDANCE_SUMMARY' | 'BUS_ARRIVAL' | 'DRIVER_INCIDENT' | 'DRIVER_ANALYSIS' | 'SOS' | 'OPERATIONAL';
+  studentId?: string;
+  busId?: string;
+  whatsappUrl?: string;
+  parentPhone?: string;
 }
+

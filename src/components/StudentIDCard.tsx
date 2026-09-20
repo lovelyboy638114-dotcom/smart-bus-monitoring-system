@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { RotateCw, Download, Printer, ZoomIn, ZoomOut, Maximize2, ShieldAlert, Sparkles, Loader } from 'lucide-react';
+import { RotateCw, Download, Printer, ZoomIn, ZoomOut, Maximize2, ShieldAlert, Sparkles, Loader, CheckCircle2, AlertOctagon, RefreshCw } from 'lucide-react';
 import { API_BASE_URL } from '../config';
 
 interface StudentIDCardProps {
@@ -14,7 +14,12 @@ interface StudentIDCardProps {
     pdf_path: string | null;
     version: number;
     status: string;
+    stage?: string;
+    checksum?: string | null;
+    file_size?: number | null;
     generated_at: string | null;
+    failure_code?: string | null;
+    failure_message?: string | null;
   };
   onRegenerate?: () => void;
   isAdmin?: boolean;
@@ -33,8 +38,34 @@ const StudentIDCard: React.FC<StudentIDCardProps> = ({ studentData, onRegenerate
   const backImage = studentData.back_path ? `${backendUrl}${studentData.back_path}?v=${studentData.version}&t=${cacheBuster}` : null;
   const pdfLink = studentData.pdf_path ? `${backendUrl}${studentData.pdf_path}?t=${cacheBuster}` : null;
 
+  const handleDownloadPdf = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    const token = localStorage.getItem('safebus_token');
+    try {
+      const response = await fetch(`${backendUrl}/api/v1/students/${studentData.student_id}/id-card/download`, {
+        headers: {
+          'Authorization': token ? `Bearer ${token}` : ''
+        }
+      });
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${studentData.student_id}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+      } else {
+        alert('Failed to download PDF card. Secure access denied.');
+      }
+    } catch (err) {
+      alert('Network error occurred during file download.');
+    }
+  };
+
   const handlePrint = () => {
-    // Open a new print window with front/back styled images side-by-side or stacked
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
     
@@ -86,8 +117,50 @@ const StudentIDCard: React.FC<StudentIDCardProps> = ({ studentData, onRegenerate
     printWindow.document.close();
   };
 
+  const handleTriggerRegeneration = async () => {
+    if (!onRegenerate) return;
+    setLoading(true);
+    try {
+      await onRegenerate();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Define generation pipeline stages
+  const stages = [
+    { key: 'QUEUED', label: 'Queued' },
+    { key: 'GENERATING_QR', label: 'QR Image' },
+    { key: 'GENERATING_FRONT', label: 'Front Card' },
+    { key: 'GENERATING_BACK', label: 'Back Card' },
+    { key: 'GENERATING_PDF', label: 'PDF Bind' },
+    { key: 'VERIFYING', label: 'Checksum verification' }
+  ];
+
+  const currentStage = studentData.stage || 'QUEUED';
+  const isFailed = studentData.status === 'FAILED' || currentStage === 'FAILED';
+  const isProcessing = studentData.status === 'PROCESSING' || studentData.status === 'REGENERATING' || studentData.status === 'PENDING';
+  const isGenerated = studentData.status === 'GENERATED' || currentStage === 'COMPLETED';
+
+  let currentStageIndex = stages.findIndex(s => s.key === currentStage);
+  if (currentStageIndex === -1 && isGenerated) {
+    currentStageIndex = stages.length; // completed
+  }
+
+  let progressPercent = 0;
+  switch (currentStage) {
+    case 'QUEUED': progressPercent = 10; break;
+    case 'GENERATING_QR': progressPercent = 30; break;
+    case 'GENERATING_FRONT': progressPercent = 50; break;
+    case 'GENERATING_BACK': progressPercent = 70; break;
+    case 'GENERATING_PDF': progressPercent = 85; break;
+    case 'VERIFYING': progressPercent = 95; break;
+    case 'COMPLETED': progressPercent = 100; break;
+    default: progressPercent = 0;
+  }
+
   return (
-    <div className={`flex flex-col items-center gap-6 p-6 rounded-3xl border border-slate-200/50 bg-white/70 backdrop-blur-xl shadow-lg w-full max-w-2xl transition-all duration-300 ${isFullscreen ? 'fixed inset-0 z-50 bg-slate-900/95 border-none p-12 text-white flex items-center justify-center' : ''}`}>
+    <div className={`flex flex-col items-center gap-6 p-6 rounded-3xl border border-slate-200/50 bg-white/70 backdrop-blur-xl shadow-lg w-full max-w-2xl transition-all duration-300 ${isFullscreen ? 'fixed inset-0 z-50 bg-slate-900/97 border-none p-12 text-white flex items-center justify-center' : ''}`}>
       
       {/* Dynamic Visual Controls Header */}
       <div className="flex justify-between items-center w-full border-b border-slate-100 pb-4">
@@ -103,15 +176,17 @@ const StudentIDCard: React.FC<StudentIDCardProps> = ({ studentData, onRegenerate
           {/* Zoom controls */}
           <button 
             onClick={() => setZoomScale(prev => Math.max(0.7, prev - 0.15))}
-            className="p-2 border border-slate-200 hover:bg-slate-55 rounded-xl transition-all hover:scale-105 active:scale-95 text-slate-500 hover:text-slate-800 bg-white"
+            className="p-2 border border-slate-200 hover:bg-slate-50 rounded-xl transition-all hover:scale-105 active:scale-95 text-slate-500 hover:text-slate-800 bg-white"
             title="Zoom Out"
+            disabled={!isGenerated}
           >
             <ZoomOut className="w-4.5 h-4.5" />
           </button>
           <button 
             onClick={() => setZoomScale(prev => Math.min(1.3, prev + 0.15))}
-            className="p-2 border border-slate-200 hover:bg-slate-55 rounded-xl transition-all hover:scale-105 active:scale-95 text-slate-500 hover:text-slate-800 bg-white"
+            className="p-2 border border-slate-200 hover:bg-slate-50 rounded-xl transition-all hover:scale-105 active:scale-95 text-slate-500 hover:text-slate-800 bg-white"
             title="Zoom In"
+            disabled={!isGenerated}
           >
             <ZoomIn className="w-4.5 h-4.5" />
           </button>
@@ -121,131 +196,209 @@ const StudentIDCard: React.FC<StudentIDCardProps> = ({ studentData, onRegenerate
             onClick={() => setIsFlipped(!isFlipped)}
             className="p-2 border border-blue-200 hover:bg-blue-50 rounded-xl transition-all hover:scale-105 active:scale-95 text-blue-600 bg-white flex items-center gap-1.5 font-bold text-xs"
             title="Flip Card"
+            disabled={!isGenerated}
           >
             <RotateCw className="w-4.5 h-4.5" />
-            <span>Flip Badge</span>
+            <span>Flip</span>
           </button>
 
           {/* Fullscreen Trigger */}
           <button 
             onClick={() => setIsFullscreen(!isFullscreen)}
-            className="p-2 border border-slate-200 hover:bg-slate-55 rounded-xl transition-all hover:scale-105 active:scale-95 text-slate-500 hover:text-slate-800 bg-white"
+            className="p-2 border border-slate-200 hover:bg-slate-50 rounded-xl transition-all hover:scale-105 active:scale-95 text-slate-500 hover:text-slate-800 bg-white"
             title="Toggle Fullscreen"
+            disabled={!isGenerated}
           >
             <Maximize2 className="w-4.5 h-4.5" />
           </button>
         </div>
       </div>
 
-      {/* 3D PVC CARD CONTAINER */}
-      <div 
-        className="relative flex justify-center items-center py-6 select-none cursor-pointer"
-        style={{ transform: `scale(${zoomScale})`, transition: 'transform 0.2s ease-out' }}
-        onClick={() => setIsFlipped(!isFlipped)}
-      >
-        {/* Aspect ratio 1.6:1 (Width 640px height 400px maps to w-full max-w-[500px] h-[312px]) */}
-        <div className="w-[500px] h-[312px] [perspective:1000px]">
-          <div 
-            className="relative w-full h-full duration-700 [transform-style:preserve-3d] shadow-2xl rounded-2xl border border-slate-200/40"
-            style={{ transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}
-          >
-            {/* FRONT SIDE */}
-            <div className="absolute inset-0 w-full h-full rounded-2xl [backface-visibility:hidden] overflow-hidden bg-slate-50 flex items-center justify-center">
-              {frontImage ? (
-                <img 
-                  src={frontImage} 
-                  alt="ID Card Front" 
-                  className="w-full h-full object-cover rounded-2xl"
-                  loading="lazy"
-                />
-              ) : (
-                <div className="flex flex-col items-center gap-2 p-6 text-center">
-                  <ShieldAlert className="w-10 h-10 text-slate-350 animate-bounce" />
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Digital front badge missing</span>
-                </div>
-              )}
-            </div>
-
-            {/* BACK SIDE */}
-            <div className="absolute inset-0 w-full h-full rounded-2xl [backface-visibility:hidden] overflow-hidden bg-slate-50 flex items-center justify-center [transform:rotateY(180deg)]">
-              {backImage ? (
-                <img 
-                  src={backImage} 
-                  alt="ID Card Back" 
-                  className="w-full h-full object-cover rounded-2xl"
-                  loading="lazy"
-                />
-              ) : (
-                <div className="flex flex-col items-center gap-2 p-6 text-center">
-                  <ShieldAlert className="w-10 h-10 text-slate-350 animate-bounce" />
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Digital back badge missing</span>
-                </div>
-              )}
+      {/* Render states dynamically */}
+      {isProcessing && (
+        <div className="w-full py-8 px-4 flex flex-col items-center justify-center text-center">
+          <div className="relative mb-6">
+            <Loader className="w-14 h-14 text-blue-600 animate-spin" />
+            <div className="absolute inset-0 flex items-center justify-center text-[10px] font-black text-blue-700">
+              {progressPercent}%
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* METADATA INFO & ACTION BUTTONS */}
-      <div className={`w-full flex flex-col gap-4 border-t border-slate-100 pt-4 ${isFullscreen ? 'text-slate-350' : 'text-slate-500'}`}>
-        <div className="flex justify-between items-center text-[10px] font-semibold tracking-wide">
-          <span>Card Version: <b className="font-extrabold text-blue-600">V{studentData.version}</b></span>
-          <span>Status: <b className={`px-1.5 py-0.5 rounded font-black text-[9px] ${studentData.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-amber-50 text-amber-600 border border-amber-100'}`}>{studentData.status}</b></span>
-          <span>Generated: <b className={isFullscreen ? 'text-white' : 'text-slate-700'}>{studentData.generated_at ? new Date(studentData.generated_at).toLocaleString() : 'N/A'}</b></span>
-        </div>
-
-        {/* Action Panel Buttons */}
-        <div className="grid grid-cols-3 gap-3.5 w-full">
-          {/* Download Front PNG */}
-          {frontImage && (
-            <a 
-              href={frontImage}
-              download={`${studentData.student_id}_front.png`}
-              target="_blank"
-              rel="noreferrer"
-              className="py-3 px-4 border border-slate-200 hover:bg-slate-50 rounded-xl font-bold text-xs transition-smooth flex items-center justify-center gap-2 shadow-sm text-slate-750 bg-white"
-            >
-              <Download className="w-4 h-4 text-slate-500" />
-              <span>Badge PNG</span>
-            </a>
-          )}
+          <h4 className="text-sm font-black text-slate-800 uppercase tracking-wider mb-2">Generating ID Credentials</h4>
+          <p className="text-xs text-slate-500 mb-6 max-w-sm">Please wait while our background pipeline draws the custom templates, verifies checksums, and compiles PDF assets...</p>
           
-          {/* Download PDF */}
-          {pdfLink && (
-            <a 
-              href={pdfLink}
-              download={`${studentData.student_id}.pdf`}
-              target="_blank"
-              rel="noreferrer"
-              className="py-3 px-4 bg-[#081F4D] hover:bg-[#1E3A8A] text-white rounded-xl font-extrabold text-xs transition-smooth flex items-center justify-center gap-2 shadow-md shadow-blue-900/10"
-            >
-              <Download className="w-4 h-4 text-blue-200" />
-              <span>Printable PDF</span>
-            </a>
-          )}
+          {/* Progress bar */}
+          <div className="w-full bg-slate-100 rounded-full h-2 mb-8 overflow-hidden">
+            <div 
+              className="bg-blue-600 h-2 rounded-full transition-all duration-500" 
+              style={{ width: `${progressPercent}%` }}
+            ></div>
+          </div>
 
-          {/* Browser Print Trigger */}
-          <button 
-            onClick={handlePrint}
-            className="py-3 px-4 border border-slate-200 hover:bg-slate-50 rounded-xl font-bold text-xs transition-smooth flex items-center justify-center gap-2 shadow-sm text-slate-750 bg-white"
-          >
-            <Printer className="w-4 h-4 text-slate-500" />
-            <span>Print Badge</span>
-          </button>
+          {/* Stepper Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 w-full">
+            {stages.map((stage, idx) => {
+              const completed = idx < currentStageIndex;
+              const active = idx === currentStageIndex;
+              return (
+                <div 
+                  key={stage.key} 
+                  className={`p-3 rounded-2xl border text-left transition-all ${
+                    completed ? 'bg-emerald-50/50 border-emerald-100 text-emerald-800' :
+                    active ? 'bg-blue-50/50 border-blue-100 text-blue-800 ring-2 ring-blue-500/10' :
+                    'bg-slate-50/50 border-slate-100 text-slate-400'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[9px] font-black uppercase tracking-wider">Step {idx + 1}</span>
+                    {completed ? (
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-650" />
+                    ) : active ? (
+                      <Loader className="w-3.5 h-3.5 text-blue-650 animate-spin" />
+                    ) : (
+                      <div className="w-1.5 h-1.5 rounded-full bg-slate-300"></div>
+                    )}
+                  </div>
+                  <span className="text-xs font-bold leading-none block">{stage.label}</span>
+                </div>
+              );
+            })}
+          </div>
         </div>
+      )}
 
-        {/* Administrator specific regeneration triggers */}
-        {isAdmin && onRegenerate && (
-          <button
-            onClick={onRegenerate}
-            disabled={loading}
-            className="w-full py-3 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white rounded-xl font-black uppercase tracking-wider text-xs transition-smooth flex items-center justify-center gap-2 shadow-md disabled:opacity-50"
+      {isFailed && (
+        <div className="w-full py-6 px-4 flex flex-col items-center justify-center text-center">
+          <div className="w-14 h-14 bg-red-55 rounded-full flex items-center justify-center mb-4">
+            <AlertOctagon className="w-8 h-8 text-red-600" />
+          </div>
+          <h4 className="text-sm font-black text-red-800 uppercase tracking-wider mb-2">Generation Failure</h4>
+          <div className="bg-red-50/50 border border-red-100 p-4 rounded-2xl max-w-md mb-6 w-full text-left">
+            <span className="text-[10px] font-extrabold text-red-600 uppercase block mb-1">
+              Error Code: {studentData.failure_code || 'UNKNOWN'}
+            </span>
+            <p className="text-xs font-semibold text-slate-700 leading-relaxed">
+              {studentData.failure_message || 'The system could not compile your ID Badge due to a background error. Please contact school administration.'}
+            </p>
+          </div>
+          {onRegenerate && (
+            <button
+              onClick={handleTriggerRegeneration}
+              disabled={loading}
+              className="py-3 px-6 bg-red-600 hover:bg-red-700 text-white rounded-xl font-black uppercase tracking-wider text-xs transition-smooth flex items-center justify-center gap-2 shadow-md shadow-red-900/10 disabled:opacity-50"
+            >
+              {loading ? <Loader className="w-4.5 h-4.5 animate-spin" /> : <RefreshCw className="w-4.5 h-4.5" />}
+              <span>Retry Card Generation</span>
+            </button>
+          )}
+        </div>
+      )}
+
+      {isGenerated && (
+        <>
+          {/* 3D PVC CARD CONTAINER */}
+          <div 
+            className="relative flex justify-center items-center py-6 select-none cursor-pointer"
+            style={{ transform: `scale(${zoomScale})`, transition: 'transform 0.2s ease-out' }}
+            onClick={() => setIsFlipped(!isFlipped)}
           >
-            {loading ? <Loader className="w-4.5 h-4.5 animate-spin" /> : <Sparkles className="w-4.5 h-4.5" />}
-            <span>Regenerate Digital ID Card</span>
-          </button>
-        )}
-      </div>
+            <div className="w-[500px] h-[312px] [perspective:1000px]">
+              <div 
+                className="relative w-full h-full duration-700 [transform-style:preserve-3d] shadow-2xl rounded-2xl border border-slate-200/40"
+                style={{ transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}
+              >
+                {/* FRONT SIDE */}
+                <div className="absolute inset-0 w-full h-full rounded-2xl [backface-visibility:hidden] overflow-hidden bg-slate-50 flex items-center justify-center">
+                  {frontImage ? (
+                    <img 
+                      src={frontImage} 
+                      alt="ID Card Front" 
+                      className="w-full h-full object-cover rounded-2xl"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center gap-2 p-6 text-center">
+                      <ShieldAlert className="w-10 h-10 text-slate-350 animate-bounce" />
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Digital front badge missing</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* BACK SIDE */}
+                <div className="absolute inset-0 w-full h-full rounded-2xl [backface-visibility:hidden] overflow-hidden bg-slate-50 flex items-center justify-center [transform:rotateY(180deg)]">
+                  {backImage ? (
+                    <img 
+                      src={backImage} 
+                      alt="ID Card Back" 
+                      className="w-full h-full object-cover rounded-2xl"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center gap-2 p-6 text-center">
+                      <ShieldAlert className="w-10 h-10 text-slate-350 animate-bounce" />
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Digital back badge missing</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* METADATA INFO & ACTION BUTTONS */}
+          <div className={`w-full flex flex-col gap-4 border-t border-slate-100 pt-4 ${isFullscreen ? 'text-slate-350' : 'text-slate-500'}`}>
+            <div className="flex justify-between items-center text-[10px] font-semibold tracking-wide">
+              <span>Card Version: <b className="font-extrabold text-blue-600">V{studentData.version}</b></span>
+              <span>Status: <b className={`px-1.5 py-0.5 rounded font-black text-[9px] bg-emerald-50 text-emerald-600 border border-emerald-100`}>GENERATED</b></span>
+              <span>Generated: <b className={isFullscreen ? 'text-white' : 'text-slate-700'}>{studentData.generated_at ? new Date(studentData.generated_at).toLocaleString() : 'N/A'}</b></span>
+            </div>
+
+            {/* Action Panel Buttons */}
+            <div className="grid grid-cols-3 gap-3.5 w-full">
+              {frontImage && (
+                <a 
+                  href={frontImage}
+                  download={`${studentData.student_id}_front.png`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="py-3 px-4 border border-slate-200 hover:bg-slate-50 rounded-xl font-bold text-xs transition-smooth flex items-center justify-center gap-2 shadow-sm text-slate-750 bg-white"
+                >
+                  <Download className="w-4 h-4 text-slate-500" />
+                  <span>Badge PNG</span>
+                </a>
+              )}
+              
+              {pdfLink && (
+                <button 
+                  onClick={handleDownloadPdf}
+                  className="py-3 px-4 bg-[#081F4D] hover:bg-[#1E3A8A] text-white rounded-xl font-extrabold text-xs transition-smooth flex items-center justify-center gap-2 shadow-md shadow-blue-900/10"
+                >
+                  <Download className="w-4 h-4 text-blue-200" />
+                  <span>Download PDF</span>
+                </button>
+              )}
+
+              <button 
+                onClick={handlePrint}
+                className="py-3 px-4 border border-slate-200 hover:bg-slate-50 rounded-xl font-bold text-xs transition-smooth flex items-center justify-center gap-2 shadow-sm text-slate-750 bg-white"
+              >
+                <Printer className="w-4 h-4 text-slate-500" />
+                <span>Print Badge</span>
+              </button>
+            </div>
+
+            {/* Administrator specific regeneration triggers */}
+            {isAdmin && onRegenerate && (
+              <button
+                onClick={handleTriggerRegeneration}
+                disabled={loading}
+                className="w-full py-3 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white rounded-xl font-black uppercase tracking-wider text-xs transition-smooth flex items-center justify-center gap-2 shadow-md disabled:opacity-50"
+              >
+                {loading ? <Loader className="w-4.5 h-4.5 animate-spin" /> : <Sparkles className="w-4.5 h-4.5" />}
+                <span>Regenerate Digital ID Card</span>
+              </button>
+            )}
+          </div>
+        </>
+      )}
 
     </div>
   );

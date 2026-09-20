@@ -69,4 +69,7 @@ public class Bus {
 
     @Column(name = "updated_at", insertable = false, updatable = false)
     private LocalDateTime updatedAt;
+
+    @Version
+    private Long version;
 }

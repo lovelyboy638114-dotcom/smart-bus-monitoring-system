@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Bell, User, Calendar, Clock } from 'lucide-react';
+import { Search, Bell, User, Calendar, Clock, X, Mail, Shield, UserCheck, KeyRound } from 'lucide-react';
+import { useApp } from '../context/AppContext';
+import { getCleanUserDisplay } from '../utils/userDisplay';
 
 interface TopNavbarProps {
   searchQuery: string;
@@ -14,6 +16,9 @@ const TopNavbar: React.FC<TopNavbarProps> = ({
   notificationCount,
   onNotificationClick
 }) => {
+  const { user, userRole } = useApp();
+  const { name: displayName, roleLabel: displayRole, initials: avatarInitial } = getCleanUserDisplay(user, userRole || 'ADMIN');
+  const [showProfileModal, setShowProfileModal] = useState(false);
   const [time, setTime] = useState(new Date());
 
   useEffect(() => {
@@ -81,16 +86,91 @@ const TopNavbar: React.FC<TopNavbarProps> = ({
         </button>
 
         {/* Admin profile */}
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600 font-extrabold text-xs shadow-sm">
-            AD
+        <button 
+          onClick={() => setShowProfileModal(true)}
+          className="flex items-center gap-2.5 hover:bg-slate-50 p-1.5 rounded-xl transition-all duration-300 border border-transparent hover:border-slate-200/80 cursor-pointer"
+        >
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 shadow-md flex items-center justify-center text-white font-extrabold text-xs">
+            {avatarInitial}
           </div>
           <div className="text-left leading-none hidden sm:block">
-            <h4 className="text-xs font-black text-slate-800">Admin Control</h4>
-            <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wide block mt-0.5">KCE Registrar</span>
+            <h4 className="text-xs font-black text-slate-800">{displayName}</h4>
+            <span className="text-[9px] font-extrabold text-blue-500 uppercase tracking-wide block mt-0.5">{displayRole}</span>
+          </div>
+        </button>
+      </div>
+
+      {showProfileModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-md overflow-hidden transform transition-all duration-300 scale-100">
+            {/* Header */}
+            <div className="p-6 bg-gradient-to-tr from-slate-900 to-slate-800 text-white relative">
+              <button 
+                onClick={() => setShowProfileModal(false)}
+                className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-blue-600/25 border border-blue-500/35 flex items-center justify-center text-blue-400 text-xl font-black uppercase shadow-lg shadow-blue-500/10">
+                  {avatarInitial}
+                </div>
+                <div className="text-left">
+                  <span className="px-2 py-0.5 text-[9px] font-black tracking-widest text-blue-400 bg-blue-500/10 border border-blue-500/25 rounded-md uppercase">
+                    {displayRole}
+                  </span>
+                  <h3 className="text-base font-black text-white mt-1 leading-tight">{displayName}</h3>
+                </div>
+              </div>
+            </div>
+
+            {/* Profile details */}
+            <div className="p-6 space-y-4">
+              <div className="flex items-center gap-3 py-1 border-b border-slate-100">
+                <Mail className="w-4 h-4 text-slate-400" />
+                <div className="text-left">
+                  <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wide">Username / Email</span>
+                  <p className="text-xs font-bold text-slate-800">{user?.username || 'admin.admin@happyjourney.ai'}</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 py-1 border-b border-slate-100">
+                <Shield className="w-4 h-4 text-slate-400" />
+                <div className="text-left">
+                  <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wide">Security Role</span>
+                  <p className="text-xs font-bold text-slate-800">System {displayRole} ({user?.role || 'ADMIN'})</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 py-1 border-b border-slate-100">
+                <UserCheck className="w-4 h-4 text-slate-400" />
+                <div className="text-left">
+                  <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wide">Privileges</span>
+                  <p className="text-xs font-bold text-slate-800">Full Console Access, Database Auditing</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 py-1">
+                <KeyRound className="w-4 h-4 text-slate-400" />
+                <div className="text-left">
+                  <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wide">Session Status</span>
+                  <p className="text-xs font-bold text-emerald-600">Active & Authenticated</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 bg-slate-50 border-t border-slate-150 flex justify-end">
+              <button 
+                onClick={() => setShowProfileModal(false)}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md shadow-blue-600/10 transition-all cursor-pointer"
+              >
+                Done
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </header>
   );
 };

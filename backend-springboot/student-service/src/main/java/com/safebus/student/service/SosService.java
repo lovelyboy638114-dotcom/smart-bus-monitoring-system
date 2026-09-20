@@ -212,6 +212,67 @@ public class SosService {
         return auditLogRepository.findBySosIdOrderByTimestampAsc(sosId);
     }
 
+    public Map<String, Object> getSosStatistics() {
+        List<SosAlert> allAlerts = alertRepository.findAll().stream()
+                .filter(a -> a.getDeletedAt() == null)
+                .toList();
+
+        long totalAlerts = allAlerts.size();
+        long resolvedAlerts = allAlerts.stream().filter(a -> a.getStatus() == SosStatus.RESOLVED).count();
+
+        double totalAckTime = 0;
+        long ackCount = 0;
+        double totalResTime = 0;
+        long resCount = 0;
+
+        Map<String, Long> severityCounts = new HashMap<>(Map.of(
+                "CRITICAL", 0L,
+                "HIGH", 0L,
+                "MEDIUM", 0L,
+                "LOW", 0L
+        ));
+
+        Map<String, Long> routeCounts = new HashMap<>();
+
+        for (SosAlert a : allAlerts) {
+            // Acknowledgment time
+            if (a.getAcknowledgedAt() != null) {
+                totalAckTime += java.time.Duration.between(a.getCreatedAt(), a.getAcknowledgedAt()).toSeconds();
+                ackCount++;
+            }
+            // Resolution time
+            if (a.getResolvedAt() != null) {
+                totalResTime += java.time.Duration.between(a.getCreatedAt(), a.getResolvedAt()).toSeconds();
+                resCount++;
+            }
+            // Severity
+            if (a.getSeverity() != null) {
+                String sev = a.getSeverity().name();
+                severityCounts.put(sev, severityCounts.getOrDefault(sev, 0L) + 1);
+            }
+            // Route
+            String route = a.getRouteName();
+            if (route == null || route.trim().isEmpty()) {
+                route = "Unknown Route";
+            }
+            routeCounts.put(route, routeCounts.getOrDefault(route, 0L) + 1);
+        }
+
+        double avgAckTime = ackCount > 0 ? (totalAckTime / ackCount) : 0.0;
+        double avgResTime = resCount > 0 ? (totalResTime / resCount) : 0.0;
+
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("total_alerts", totalAlerts);
+        stats.put("resolved_alerts", resolvedAlerts);
+        stats.put("avg_acknowledgment_time_seconds", avgAckTime);
+        stats.put("avg_resolution_time_seconds", avgResTime);
+        stats.put("severity_counts", severityCounts);
+        stats.put("route_counts", routeCounts);
+
+        return stats;
+    }
+
+
     public PoliceStation getPoliceStation(Integer id) {
         if (id == null) return null;
         return policeStationRepository.findById(id).orElse(null);

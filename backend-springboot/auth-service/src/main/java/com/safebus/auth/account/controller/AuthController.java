@@ -4,6 +4,11 @@ import com.safebus.auth.account.dto.LoginRequest;
 import com.safebus.auth.account.dto.LoginResponse;
 import com.safebus.auth.account.service.AuthService;
 import com.safebus.common.dto.response.ApiResponse;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -14,6 +19,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/auth")
+@Tag(name = "Authentication", description = "Authentication APIs for logging in and managing password credentials")
 public class AuthController {
 
     private final AuthService authService;
@@ -23,6 +29,12 @@ public class AuthController {
     }
 
     @PostMapping("/login")
+    @Operation(summary = "User Login Authentication", description = "Validates user login credentials and returns a secure JWT bearer token and user role payload.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Login successful", 
+                    content = @Content(schema = @Schema(implementation = LoginResponse.class))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Invalid credentials supplied")
+    })
     public ResponseEntity<ApiResponse<LoginResponse>> login(
             @Valid @RequestBody LoginRequest request,
             HttpServletRequest servletRequest) {
@@ -47,6 +59,11 @@ public class AuthController {
     }
 
     @PostMapping("/change-password")
+    @Operation(summary = "Change Password", description = "Allows registered user to update their account credentials securely.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Password changed successfully"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid old password or input values")
+    })
     public ResponseEntity<ApiResponse<String>> changePassword(
             @RequestBody Map<String, String> payload,
             HttpServletRequest servletRequest) {

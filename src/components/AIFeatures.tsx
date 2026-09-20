@@ -38,13 +38,7 @@ const AIFeatures: React.FC<AIFeaturesProps> = ({
   };
 
   const handleDrowsyToggle = () => {
-    const nextVal = !isDrowsy;
-    setIsDrowsy(nextVal);
-    if (nextVal) {
-      onTriggerAlert("CRITICAL ALARM: Camera detected Driver Drowsiness on Bus 1!", "error");
-    } else {
-      onTriggerAlert("Driver Drowsiness Alert cleared for Bus 1.", "success");
-    }
+    onTriggerAlert("Simulation Alert: Driver Drowsiness testing must be performed using the real webcam.", "warning");
   };
 
   const handleRouteDeviateToggle = () => {
@@ -91,16 +85,12 @@ const AIFeatures: React.FC<AIFeaturesProps> = ({
         <div className="space-y-2 text-xs font-bold">
           <button
             onClick={handleDrowsyToggle}
-            className={`w-full py-2.5 px-4 rounded-xl border flex items-center justify-between transition-smooth ${
-              isDrowsy 
-                ? 'bg-rose-50 border-rose-250 text-rose-800 animate-pulse' 
-                : 'bg-white border-slate-200 text-slate-650 hover:bg-slate-50'
-            }`}
+            className="w-full py-2.5 px-4 rounded-xl border flex items-center justify-between transition-smooth bg-slate-50 border-slate-200 text-slate-400 cursor-not-allowed"
           >
             <span className="flex items-center gap-2">
-              <Eye className="w-4 h-4" /> Driver Drowsiness
+              <Eye className="w-4 h-4" /> Driver Drowsiness (CV ONLY)
             </span>
-            <span>{isDrowsy ? 'ACTIVE' : 'TEST'}</span>
+            <span>CV ONLY</span>
           </button>
 
           <button

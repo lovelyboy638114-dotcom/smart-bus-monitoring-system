@@ -1,6 +1,9 @@
 package com.safebus.student.controller;
 
 import com.safebus.common.dto.response.ApiResponse;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -10,6 +13,7 @@ import java.util.*;
 
 @RestController
 @RequestMapping("/api/v1/analytics")
+@Tag(name = "Analytics", description = "Summary analytics reports and dashboard statistics metrics APIs")
 public class AnalyticsController {
 
     private final RestTemplate restTemplate;
@@ -19,6 +23,10 @@ public class AnalyticsController {
     }
 
     @GetMapping("/summary")
+    @Operation(summary = "Get Real-time Summary Metrics", description = "Fetch aggregated statistics of total students, active buses, trips count, active SOS alerts, and attendance percentage.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Real-time summary analytics aggregated successfully")
+    })
     public ResponseEntity<ApiResponse<Map<String, Object>>> getSummary() {
         String correlationId = UUID.randomUUID().toString();
         Map<String, Object> summary = new HashMap<>();
@@ -85,6 +93,10 @@ public class AnalyticsController {
     }
 
     @GetMapping("/sos")
+    @Operation(summary = "Get SOS Alerts Analysis", description = "Query monthly total SOS events count, response averages, and category metrics logs.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Emergency SOS logs aggregated data retrieved successfully")
+    })
     public ResponseEntity<ApiResponse<Map<String, Object>>> getSosAnalysis() {
         String correlationId = UUID.randomUUID().toString();
         Map<String, Object> sosAnalysis = new HashMap<>();
@@ -109,6 +121,10 @@ public class AnalyticsController {
     }
 
     @GetMapping("/attendance")
+    @Operation(summary = "Get Attendance Metrics Analysis", description = "Query peak transit boarding hours, weekly scan trends, and parent warning triggers counts.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Attendance metrics data retrieved successfully")
+    })
     public ResponseEntity<ApiResponse<Map<String, Object>>> getAttendanceAnalysis() {
         String correlationId = UUID.randomUUID().toString();
         Map<String, Object> attendanceAnalysis = new HashMap<>();

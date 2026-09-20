@@ -12,83 +12,14 @@ const LoginSelection = () => {
   const { setUserRole } = useApp();
   const navigate = useNavigate();
 
-  // Role: Default to 'parent'
-  const [selectedRole, setSelectedRole] = useState('parent'); 
-  const [username, setUsername] = useState('sureshr003.parent@happyjourney.ai');
-  const [password, setPassword] = useState('Suresh@R003');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
 
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
-
-  // Default HappyJourney Standardized Credentials
-  const defaultAccounts = {
-    parent: { username: 'sureshr003.parent@happyjourney.ai', password: 'Suresh@R003' },
-    student: { username: 'vijayar003.student@happyjourney.ai', password: 'Vijaya@R003' },
-    driver: { username: 'rameshdr001.driver@happyjourney.ai', password: 'Ramesh@DR001' },
-    admin: { username: 'admin.admin@happyjourney.ai', password: 'admin@ADMIN123' }
-  };
-
-  // Role details map for multi-theme portal rendering
-  const roleDetails = {
-    parent: {
-      theme: 'emerald',
-      title: 'Welcome Parent',
-      subtitle: 'Monitor your child\'s school journey & live updates.',
-      placeholder: 'sureshr003.parent@happyjourney.ai',
-      accentColor: 'text-emerald-600',
-      focusBorder: 'focus:border-emerald-500 focus:ring-emerald-150',
-      btnBg: 'bg-emerald-600 hover:bg-emerald-700',
-      tabBorder: 'border-emerald-600',
-      icon: <UserCheck2 className="w-5 h-5 text-emerald-600" />
-    },
-    student: {
-      theme: 'blue',
-      title: 'Welcome Student',
-      subtitle: 'Access your identity card and dynamic boarding pass.',
-      placeholder: 'vijayar003.student@happyjourney.ai',
-      accentColor: 'text-blue-600',
-      focusBorder: 'focus:border-blue-500 focus:ring-blue-150',
-      btnBg: 'bg-blue-600 hover:bg-blue-700',
-      tabBorder: 'border-blue-600',
-      icon: <UserCheck className="w-5 h-5 text-blue-600" />
-    },
-    driver: {
-      theme: 'orange',
-      title: 'Welcome Driver',
-      subtitle: 'Review routes, log telemetry, and contact passengers.',
-      placeholder: 'rameshdr001.driver@happyjourney.ai',
-      accentColor: 'text-orange-600',
-      focusBorder: 'focus:border-orange-500 focus:ring-orange-150',
-      btnBg: 'bg-orange-600 hover:bg-orange-700',
-      tabBorder: 'border-orange-600',
-      icon: <Bus className="w-5 h-5 text-orange-600" />
-    },
-    admin: {
-      theme: 'purple',
-      title: 'Welcome Admin',
-      subtitle: 'Manage school registrations, vehicles, and SOS logs.',
-      placeholder: 'admin.admin@happyjourney.ai',
-      accentColor: 'text-purple-600',
-      focusBorder: 'focus:border-purple-500 focus:ring-purple-150',
-      btnBg: 'bg-purple-600 hover:bg-purple-700',
-      tabBorder: 'border-purple-600',
-      icon: <Shield className="w-5 h-5 text-purple-600" />
-    }
-  };
-
-  const handleRoleChange = (role) => {
-    setSelectedRole(role);
-    setError('');
-    setSuccessMsg('');
-    const demo = defaultAccounts[role];
-    if (demo) {
-      setUsername(demo.username);
-      setPassword(demo.password);
-    }
-  };
 
   // Force password change states
   const [forceChangeUser, setForceChangeUser] = useState(null);
@@ -118,88 +49,82 @@ const LoginSelection = () => {
   const strength = getPasswordStrength(changePasswordForm.newPassword);
 
   const handleLoginSubmit = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     setError('');
     setSuccessMsg('');
     setIsLoading(true);
 
     if (!username || !password) {
-      setError('Please enter your login ID and password.');
+      setError('Please enter your email/username and password.');
       setIsLoading(false);
       return;
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/login`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           username: username.trim(),
-          password: password,
-          role: selectedRole
+          password: password
         })
       });
       const resJson = await response.json();
-      if (response.ok && resJson.success) {
-        if (resJson.must_change_password) {
+      if (response.ok && resJson.success && resJson.data) {
+        const loginData = resJson.data;
+
+        // Redirect flow for mustChangePassword
+        if (loginData.mustChangePassword) {
           setForceChangeUser({
             username: username.trim(),
-            role: selectedRole
+            role: loginData.role.toUpperCase()
           });
           setChangePasswordForm(prev => ({ ...prev, oldPassword: password }));
           setIsLoading(false);
           return;
         }
 
-        setUserRole(selectedRole);
+        const role = loginData.role.toUpperCase();
+        const fullName = loginData.fullName || '';
+        if (fullName) {
+          localStorage.setItem('safebus_user_fullname', fullName);
+        }
+        setUserRole(role, fullName);
         localStorage.setItem('safebus_user_username', username.trim());
-        if (resJson.user) {
-          if (resJson.user.phone) {
-            localStorage.setItem('safebus_user_phone', resJson.user.phone);
-          }
-          if (resJson.user.parentId) {
-            localStorage.setItem('safebus_parent_id', String(resJson.user.parentId));
+        localStorage.setItem('safebus_token', loginData.token);
+        localStorage.setItem('safebus_user_role', role);
+
+        if (role === 'PARENT') {
+          try {
+            const parentRes = await fetch(`${API_BASE_URL}/api/v1/students/parent/profile?username=${encodeURIComponent(username.trim())}`, {
+              headers: {
+                'Authorization': `Bearer ${loginData.token}`
+              }
+            });
+            const parentJson = await parentRes.json();
+            if (parentRes.ok && parentJson.success && parentJson.data) {
+              const parent = parentJson.data;
+              localStorage.setItem('safebus_parent_id', String(parent.id));
+              localStorage.setItem('safebus_user_phone', parent.phone);
+              console.log("[Login] Resolved Parent Profile mapping. ID:", parent.id);
+            }
+          } catch (err) {
+            console.error("[Login] Failed to fetch parent profile details:", err);
           }
         }
+
         setSuccessMsg('Login successful! Redirecting...');
         setTimeout(() => {
-          if (selectedRole === 'driver') navigate('/driver/dashboard');
-          if (selectedRole === 'parent') navigate('/parent/dashboard');
-          if (selectedRole === 'student') navigate('/student/dashboard');
-          if (selectedRole === 'admin') navigate('/admin/dashboard');
+          if (role === 'DRIVER') navigate('/driver/dashboard');
+          else if (role === 'PARENT') navigate('/parent/dashboard');
+          else if (role === 'STUDENT') navigate('/student/dashboard');
+          else if (role === 'ADMIN') navigate('/admin/dashboard');
         }, 800);
       } else {
-        setError(resJson.message || 'Invalid credentials.');
+        setError(resJson.message || 'Invalid username or password.');
       }
     } catch (err) {
-      // Fallback local matching
-      const demoAcc = defaultAccounts[selectedRole];
-      const isDemoMatch = demoAcc && demoAcc.username === username.trim() && demoAcc.password === password;
-
-      const saved = localStorage.getItem('safebus_accounts');
-      let localAccounts = [];
-      if (saved) {
-        try { localAccounts = JSON.parse(saved); } catch (e) {}
-      }
-      const isLocalMatch = localAccounts.some(acc => 
-        acc.role === selectedRole && 
-        acc.username === username.trim() && 
-        acc.password === password
-      );
-
-      if (isDemoMatch || isLocalMatch) {
-        setUserRole(selectedRole);
-        localStorage.setItem('safebus_user_username', username.trim());
-        setSuccessMsg('Demo Login successful! Redirecting...');
-        setTimeout(() => {
-          if (selectedRole === 'driver') navigate('/driver/dashboard');
-          if (selectedRole === 'parent') navigate('/parent/dashboard');
-          if (selectedRole === 'student') navigate('/student/dashboard');
-          if (selectedRole === 'admin') navigate('/admin/dashboard');
-        }, 800);
-      } else {
-        setError('Network error. Failed to reach backend API.');
-      }
+      setError(err.message || 'Network error. Failed to reach backend API.');
     } finally {
       setIsLoading(false);
     }
@@ -220,7 +145,7 @@ const LoginSelection = () => {
 
     setChangeLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/change-password`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/auth/change-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -232,16 +157,58 @@ const LoginSelection = () => {
       });
       const resJson = await response.json();
       if (response.ok && resJson.success) {
-        setUserRole(forceChangeUser.role);
-        localStorage.setItem('safebus_user_username', forceChangeUser.username);
-        setForceChangeUser(null);
-        setSuccessMsg('Password changed successfully! Redirecting...');
-        setTimeout(() => {
-          if (forceChangeUser.role === 'driver') navigate('/driver/dashboard');
-          if (forceChangeUser.role === 'parent') navigate('/parent/dashboard');
-          if (forceChangeUser.role === 'student') navigate('/student/dashboard');
-          if (forceChangeUser.role === 'admin') navigate('/admin/dashboard');
-        }, 800);
+        const loginResponse = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: forceChangeUser.username,
+            password: changePasswordForm.newPassword
+          })
+        });
+        const loginJson = await loginResponse.json();
+
+        if (loginResponse.ok && loginJson.success && loginJson.data) {
+          const loginData = loginJson.data;
+          const role = loginData.role.toUpperCase();
+          const fullName = loginData.fullName || '';
+          if (fullName) {
+            localStorage.setItem('safebus_user_fullname', fullName);
+          }
+          setUserRole(role, fullName);
+          localStorage.setItem('safebus_user_username', forceChangeUser.username);
+          localStorage.setItem('safebus_token', loginData.token);
+          localStorage.setItem('safebus_user_role', role);
+
+          if (role === 'PARENT') {
+            try {
+              const parentRes = await fetch(`${API_BASE_URL}/api/v1/students/parent/profile?username=${encodeURIComponent(forceChangeUser.username.trim())}`, {
+                headers: {
+                  'Authorization': `Bearer ${loginData.token}`
+                }
+              });
+              const parentJson = await parentRes.json();
+              if (parentRes.ok && parentJson.success && parentJson.data) {
+                const parent = parentJson.data;
+                localStorage.setItem('safebus_parent_id', String(parent.id));
+                localStorage.setItem('safebus_user_phone', parent.phone);
+                console.log("[Login] Resolved Parent Profile mapping. ID:", parent.id);
+              }
+            } catch (err) {
+              console.error("[Login] Failed to fetch parent profile details:", err);
+            }
+          }
+
+          setForceChangeUser(null);
+          setSuccessMsg('Password changed successfully! Redirecting...');
+          setTimeout(() => {
+            if (role === 'DRIVER') navigate('/driver/dashboard');
+            else if (role === 'PARENT') navigate('/parent/dashboard');
+            else if (role === 'STUDENT') navigate('/student/dashboard');
+            else if (role === 'ADMIN') navigate('/admin/dashboard');
+          }, 800);
+        } else {
+          setChangeError(loginJson.message || 'Auto-login failed after password change.');
+        }
       } else {
         setChangeError(resJson.message || 'Verification failed.');
       }
@@ -251,8 +218,6 @@ const LoginSelection = () => {
       setChangeLoading(false);
     }
   };
-
-  const currentRoleDetails = roleDetails[selectedRole];
 
   return (
     <div className="flex h-screen w-screen bg-[#F8FAFC] overflow-hidden font-sans">
@@ -330,11 +295,11 @@ const LoginSelection = () => {
           {/* Header */}
           <div className="mb-6 text-center">
             <div className="inline-flex p-3 bg-slate-50 border border-slate-100 rounded-2xl mb-3 shadow-inner">
-              {currentRoleDetails.icon}
+              <Shield className="w-5 h-5 text-blue-600" />
             </div>
-            <h1 className="text-2xl font-black text-slate-900 tracking-tight">{currentRoleDetails.title}</h1>
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight">Welcome Back</h1>
             <p className="text-xs text-slate-400 font-semibold mt-1">
-              {currentRoleDetails.subtitle}
+              Sign in to access your SafeBus AI dashboard.
             </p>
           </div>
 
@@ -356,38 +321,15 @@ const LoginSelection = () => {
           {/* Login Form */}
           <form onSubmit={handleLoginSubmit} className="flex flex-col gap-4">
             
-            {/* Animated Tab Role Selector */}
-            <div>
-              <label className="text-xs font-extrabold text-slate-500 block mb-2 uppercase tracking-wide">
-                Select Portal Access Role
-              </label>
-              <div className="grid grid-cols-4 gap-1 p-1 bg-slate-100/80 rounded-xl relative border border-slate-150">
-                {Object.keys(roleDetails).map((role) => (
-                  <button
-                    key={role}
-                    type="button"
-                    onClick={() => handleRoleChange(role)}
-                    className={`py-2 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all duration-200 z-10 ${
-                      selectedRole === role 
-                        ? 'bg-white text-slate-900 shadow-sm border border-slate-200' 
-                        : 'text-slate-500 hover:text-slate-800'
-                    }`}
-                  >
-                    {role}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Email Field with Floating Label concept */}
+            {/* Email / Username Field */}
             <div className="relative mt-2">
               <input
-                type="email"
+                type="text"
                 required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder={currentRoleDetails.placeholder}
-                className={`w-full px-4 py-3 bg-slate-50/50 text-slate-800 border border-slate-200 rounded-xl text-xs font-semibold focus:bg-white focus:outline-none transition-smooth ${currentRoleDetails.focusBorder}`}
+                placeholder="Enter email or username"
+                className="w-full px-4 py-3 bg-slate-50/50 text-slate-800 border border-slate-200 focus:border-blue-500 rounded-xl text-xs font-semibold focus:bg-white focus:outline-none transition-smooth"
               />
               <span className="absolute right-3.5 top-3 text-[10px] text-slate-400 font-extrabold uppercase tracking-wide">ID / Email</span>
             </div>
@@ -400,12 +342,12 @@ const LoginSelection = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className={`w-full px-4 py-3 bg-slate-50/50 text-slate-800 border border-slate-200 rounded-xl text-xs font-semibold focus:bg-white focus:outline-none transition-smooth ${currentRoleDetails.focusBorder}`}
+                className="w-full px-4 py-3 bg-slate-50/50 text-slate-800 border border-slate-200 focus:border-blue-500 rounded-xl text-xs font-semibold focus:bg-white focus:outline-none transition-smooth"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3.5 top-3.5 text-slate-400 hover:text-slate-600 focus:outline-none"
+                className="absolute right-3.5 top-3.5 text-slate-400 hover:text-slate-650 focus:outline-none"
               >
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
@@ -418,7 +360,7 @@ const LoginSelection = () => {
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
-                  className={`w-3.5 h-3.5 rounded border-slate-300 ${currentRoleDetails.accentColor} focus:ring-0`}
+                  className="w-3.5 h-3.5 rounded border-slate-300 text-blue-600 focus:ring-0"
                 />
                 <span>Remember me</span>
               </label>
@@ -435,7 +377,7 @@ const LoginSelection = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className={`w-full py-3.5 text-white rounded-xl font-bold uppercase tracking-wider text-xs shadow-md transition-smooth flex items-center justify-center gap-2 ${currentRoleDetails.btnBg}`}
+              className="w-full py-3.5 text-white bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 rounded-xl font-bold uppercase tracking-wider text-xs shadow-md transition-smooth flex items-center justify-center gap-2"
             >
               {isLoading ? (
                 <>
@@ -443,7 +385,7 @@ const LoginSelection = () => {
                   <span>Verifying Credentials...</span>
                 </>
               ) : (
-                <span>Access Console</span>
+                <span>Log In</span>
               )}
             </button>
 

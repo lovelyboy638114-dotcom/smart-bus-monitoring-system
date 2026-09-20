@@ -12,19 +12,31 @@ MQTT_TOPIC = "safebus/telemetry"
 # Planned Route Paths Coordinates
 ROUTE_PATHS = {
     "TN38AB1234": [
-        (13.0850, 80.2101),  # Anna Nagar Depot
-        (13.0820, 80.2120),  # Anna Nagar Roundtana
-        (13.0780, 80.2150),  # Aminjikarai
-        (13.0720, 80.2220),  # Kilpauk
-        (13.0650, 80.2300),  # Chetpet
-        (13.0569, 80.2425)   # School Campus (Nungambakkam)
+        (10.9925, 76.9616),  # Ukkadam Bus Stand
+        (10.9595, 76.9755),  # Sundarapuram
+        (10.9060, 76.9865),  # Eachanari
+        (10.8985, 76.9950),  # Karpagam Signal
+        (10.8872, 77.0015),  # Malumichampatti
+        (10.8750, 77.0120),  # Othakalmandapam
+        (10.8801, 77.0224)   # Karpagam College of Engineering
     ],
     "TN38CD5678": [
-        (13.0373, 80.1943),  # KK Nagar Depot
-        (13.0420, 80.2020),  # Ashok Nagar
-        (13.0470, 80.2150),  # West Mambalam
-        (13.0520, 80.2250),  # Kodambakkam
-        (13.0569, 80.2425)   # School Campus (Nungambakkam)
+        (10.6580, 77.0090),  # Pollachi Bus Stand
+        (10.6850, 77.0125),  # Achipatti
+        (10.7250, 77.0160),  # Kovilpalayam
+        (10.7600, 77.0180),  # Thamaraikulam
+        (10.8170, 77.0205),  # Kinathukadavu
+        (10.8450, 77.0215),  # Millgate
+        (10.8650, 77.0220),  # Myleripalayam
+        (10.8801, 77.0224)   # Karpagam College of Engineering
+    ],
+    "TN38EP9012": [
+        (10.9985, 77.0273),  # Singanallur
+        (10.9940, 77.0580),  # Ondipudur
+        (10.9650, 77.0650),  # Pattanam Pirivu
+        (10.9420, 77.0610),  # Chinthamanipudur
+        (10.9020, 77.0420),  # Chettipalayam
+        (10.8801, 77.0224)   # Karpagam College of Engineering
     ]
 }
 
@@ -86,12 +98,12 @@ def simulate_buses():
                 client.publish(MQTT_TOPIC, json.dumps(payload))
                 print(f"Published MQTT: {payload}")
             else:
-                # HTTP REST fallback direct ingestion
                 try:
-                    res = requests.post("http://localhost:5000/api/telemetry", json=payload, timeout=3)
+                    res = requests.post("http://localhost:8080/api/v1/telemetry", json=payload, timeout=3)
                     print(f"POST HTTP: {payload} -> Response: {res.status_code}")
                 except Exception as err:
-                    print(f"Flask API offline. Ingestion failed: {err}")
+                    print(f"Gateway Ingestion failed: {err}")
+
                     
             # Increment path coordinates index
             path_indices[bus_id] = (idx + 1) % len(path)

@@ -33,17 +33,24 @@ const EmergencyHistory = () => {
 
   // Filter history records
   const filteredHistory = historyList.filter(item => {
+    const sosId = item.sosId || item.sos_id || "";
+    const busId = item.busId || item.bus_id || "";
+    const driverName = item.driverName || item.driver_name || "";
+    const emergencyType = item.emergencyType || item.emergency_type || "";
+    const routeName = item.routeName || item.route_name || "";
+
     const matchesSearch = 
-      item.sos_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.bus_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.driver_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.emergency_type.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (item.route_name && item.route_name.toLowerCase().includes(searchQuery.toLowerCase()));
+      sosId.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      busId.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      driverName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      emergencyType.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      routeName.toLowerCase().includes(searchQuery.toLowerCase());
       
     const matchesSeverity = filterSeverity === 'All' || item.severity === filterSeverity;
     
     return matchesSearch && matchesSeverity;
   });
+
 
   // Recharts Pie Chart Data (Severity counts)
   const pieData = [
@@ -66,7 +73,105 @@ const EmergencyHistory = () => {
   }));
 
   const handleExport = (format: string) => {
-    triggerNotification(`Successfully compiled and exported ${filteredHistory.length} emergency log records to ${format} format!`, "success");
+    try {
+      if (format === 'PDF') {
+        const printWindow = window.open('', '_blank');
+        const dateStr = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        const rowsHtml = filteredHistory.map((item, idx) => `
+          <tr style="border-bottom: 1px solid #e2e8f0; font-size: 11px;">
+            <td style="padding: 8px; font-weight: bold;">${idx + 1}</td>
+            <td style="padding: 8px; font-weight: bold; font-family: monospace;">${item.sosId || item.sos_id}</td>
+            <td style="padding: 8px;">${item.createdAt || item.time || item.created_at || ''}</td>
+            <td style="padding: 8px; font-weight: 600;">${item.busId || item.bus_id} (${item.routeName || item.route_name || 'Route'})</td>
+            <td style="padding: 8px;">${item.driverName || item.driver_name}</td>
+            <td style="padding: 8px; font-weight: bold; color: #dc2626;">${item.emergencyType || item.emergency_type}</td>
+            <td style="padding: 8px; font-weight: 800;">${item.severity}</td>
+            <td style="padding: 8px; font-style: italic;">"${item.remarks || 'Resolved'}"</td>
+            <td style="padding: 8px;">${item.resolvedBy || item.resolved_by || 'Admin'} (${item.resolvedAt || item.resolved_at || ''})</td>
+          </tr>
+        `).join('');
+
+        if (printWindow) {
+          printWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+              <head>
+                <title>SafeBus Emergency Response Audit Report - ${dateStr}</title>
+                <style>
+                  @media print { @page { size: landscape; margin: 10mm; } body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+                  body { font-family: system-ui, sans-serif; margin: 20px; color: #0f172a; }
+                  .header { border-bottom: 2px solid #ef4444; padding-bottom: 10px; margin-bottom: 15px; }
+                  .title { font-size: 20px; font-weight: 900; color: #991b1b; text-transform: uppercase; }
+                  table { width: 100%; border-collapse: collapse; text-align: left; }
+                  th { background: #f8fafc; padding: 8px; font-size: 11px; text-transform: uppercase; border-bottom: 2px solid #cbd5e1; }
+                </style>
+              </head>
+              <body>
+                <div class="header">
+                  <div class="title">SafeBus Shield • Emergency Response Audit Report</div>
+                  <div style="font-size: 11px; color: #64748b;">Karpagam College of Engineering Fleet • Generated: ${new Date().toLocaleString()}</div>
+                </div>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Alert ID</th>
+                      <th>Trigger Time</th>
+                      <th>Bus / Route</th>
+                      <th>Driver</th>
+                      <th>Incident Type</th>
+                      <th>Severity</th>
+                      <th>Resolution Notes</th>
+                      <th>Resolved By</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${rowsHtml}
+                  </tbody>
+                </table>
+                <script>window.onload = function() { window.print(); };</script>
+              </body>
+            </html>
+          `);
+          printWindow.document.close();
+        }
+      } else {
+        // CSV / Excel Export
+        const csvRows = [
+          ['Alert ID', 'Trigger Time', 'Bus ID', 'Route Name', 'Driver Name', 'Incident Type', 'Severity', 'Status', 'Resolution Remarks', 'Resolved By', 'Resolved Time']
+        ];
+        filteredHistory.forEach(item => {
+          csvRows.push([
+            `"${item.sosId || item.sos_id}"`,
+            `"${item.createdAt || item.time || item.created_at || ''}"`,
+            `"${item.busId || item.bus_id}"`,
+            `"${item.routeName || item.route_name || ''}"`,
+            `"${item.driverName || item.driver_name}"`,
+            `"${item.emergencyType || item.emergency_type}"`,
+            `"${item.severity}"`,
+            `"${item.status}"`,
+            `"${(item.remarks || '').replace(/"/g, '""')}"`,
+            `"${item.resolvedBy || item.resolved_by || ''}"`,
+            `"${item.resolvedAt || item.resolved_at || ''}"`
+          ]);
+        });
+        const csvString = csvRows.map(r => r.join(',')).join('\n');
+        const blob = new Blob(['\uFEFF' + csvString], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        const ext = format.toLowerCase() === 'excel' ? 'csv' : 'csv';
+        link.setAttribute('href', url);
+        link.setAttribute('download', `safebus_emergency_audit_${new Date().toISOString().split('T')[0]}.${ext}`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }
+      triggerNotification(`Successfully compiled and exported ${filteredHistory.length} emergency log records to ${format} format!`, "success");
+    } catch (err) {
+      console.error("Export error:", err);
+      triggerNotification(`Failed to export emergency logs to ${format}.`, "warning");
+    }
   };
 
   return (
@@ -267,42 +372,56 @@ const EmergencyHistory = () => {
                   </td>
                 </tr>
               ) : (
-                filteredHistory.map((item) => (
-                  <tr key={item.sos_id} className="hover:bg-slate-50/20 transition-smooth">
-                    <td className="p-4 font-mono text-[10px] text-slate-900 font-black">{item.sos_id}</td>
-                    <td className="p-4 text-[10px] text-slate-450 leading-normal">
-                      <div>{item.time}</div>
-                      <div className="text-[8px] font-bold text-slate-400 mt-0.5">30-07-2026</div>
-                    </td>
-                    <td className="p-4">
-                      <div>{item.bus_id}</div>
-                      <div className="text-[9px] text-slate-400 font-black uppercase mt-0.5">{item.route_name || "Route A"}</div>
-                    </td>
-                    <td className="p-4 text-[11px] text-slate-800">{item.driver_name}</td>
-                    <td className="p-4">
-                      <span className="px-2 py-0.5 bg-rose-50 text-rose-600 border border-rose-100 rounded text-[9px] uppercase font-black">
-                        {item.emergency_type}
-                      </span>
-                    </td>
-                    <td className="p-4">
-                      <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${
-                        item.severity === 'CRITICAL' 
-                          ? 'bg-red-600 text-white' 
-                          : item.severity === 'HIGH'
-                          ? 'bg-orange-500 text-white'
-                          : 'bg-amber-500 text-white'
-                      }`}>
-                        {item.severity}
-                      </span>
-                    </td>
-                    <td className="p-4 max-w-xs text-left">
-                      <div className="text-[11px] text-slate-800 leading-normal italic">"{item.remarks}"</div>
-                      <div className="text-[8.5px] text-slate-400 font-extrabold uppercase mt-1">
-                        Resolved by: {item.resolved_by} | {item.resolved_at}
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                filteredHistory.map((item) => {
+                  const sosId = item.sosId || item.sos_id;
+                  const busId = item.busId || item.bus_id;
+                  const routeName = item.routeName || item.route_name;
+                  const driverName = item.driverName || item.driver_name;
+                  const emergencyType = item.emergencyType || item.emergency_type;
+                  const remarks = item.remarks;
+                  const resolvedBy = item.resolvedBy || item.resolved_by;
+                  const resolvedAt = item.resolvedAt || item.resolved_at;
+                  const createdAt = item.createdAt || item.time || item.created_at || "";
+                  const displayDate = createdAt.includes("T") ? createdAt.split("T")[0] : "30-07-2026";
+                  const displayTime = createdAt.includes("T") ? createdAt.split("T")[1] : createdAt;
+
+                  return (
+                    <tr key={sosId} className="hover:bg-slate-50/20 transition-smooth">
+                      <td className="p-4 font-mono text-[10px] text-slate-900 font-black">{sosId}</td>
+                      <td className="p-4 text-[10px] text-slate-450 leading-normal">
+                        <div>{displayTime}</div>
+                        <div className="text-[8px] font-bold text-slate-400 mt-0.5">{displayDate}</div>
+                      </td>
+                      <td className="p-4">
+                        <div>{busId}</div>
+                        <div className="text-[9px] text-slate-400 font-black uppercase mt-0.5">{routeName || "Route A"}</div>
+                      </td>
+                      <td className="p-4 text-[11px] text-slate-800">{driverName}</td>
+                      <td className="p-4">
+                        <span className="px-2 py-0.5 bg-rose-50 text-rose-600 border border-rose-100 rounded text-[9px] uppercase font-black">
+                          {emergencyType}
+                        </span>
+                      </td>
+                      <td className="p-4">
+                        <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${
+                          item.severity === 'CRITICAL' 
+                            ? 'bg-red-600 text-white' 
+                            : item.severity === 'HIGH'
+                            ? 'bg-orange-500 text-white'
+                            : 'bg-amber-500 text-white'
+                        }`}>
+                          {item.severity}
+                        </span>
+                      </td>
+                      <td className="p-4 max-w-xs text-left">
+                        <div className="text-[11px] text-slate-800 leading-normal italic">"{remarks}"</div>
+                        <div className="text-[8.5px] text-slate-400 font-extrabold uppercase mt-1">
+                          Resolved by: {resolvedBy} | {resolvedAt}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

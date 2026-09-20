@@ -4,40 +4,27 @@ import {
   ResponsiveContainer, AreaChart, Area, BarChart, Bar, 
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell 
 } from 'recharts';
-import { BarChart3, TrendingUp, AlertTriangle, ShieldCheck, UserCheck, Navigation, Percent, MapPin, AlertCircle } from 'lucide-react';
+import { BarChart3, TrendingUp, AlertTriangle, ShieldCheck, UserCheck, Navigation, Percent, MapPin, AlertCircle, ShieldAlert } from 'lucide-react';
 
 const ReportsPage = () => {
-  const { driverBehavior, students = [], buses = [] } = useApp();
+  const { driverBehavior, students = [], buses = [], activeSOSAlerts = [] } = useApp();
 
   // safety score weekly distributions mapping
   const safetyScore = (driverBehavior && typeof driverBehavior.safetyScore === 'number') ? driverBehavior.safetyScore : 95;
   const isDrowsy = driverBehavior ? Boolean(driverBehavior.drowsiness) : false;
 
-  const weeklySafetyData = [
-    { name: 'Mon', score: 88, violations: 1 },
-    { name: 'Tue', score: 85, violations: 2 },
-    { name: 'Wed', score: 92, violations: 0 },
-    { name: 'Thu', score: 87, violations: 1 },
-    { name: 'Fri', score: 89, violations: 1 },
-    { name: 'Sat', score: 90, violations: 0 },
-    { name: 'Sun', score: safetyScore, violations: isDrowsy ? 2 : 0 }
-  ];
-
-  // Mock data for alert category ratios
-  const alertCategoriesData = [
-    { name: 'Overspeed', value: 12, fill: '#60a5fa' },
-    { name: 'Harsh Brake', value: 8, fill: '#818cf8' },
-    { name: 'Route Dev', value: 4, fill: '#fb7185' },
-    { name: 'Drowsiness', value: 6, fill: '#f43f5e' }
-  ];
-
-  // Mock student monthly attendance trend
-  const attendanceMonthlyTrend = [
-    { name: 'Week 1', rate: 94 },
-    { name: 'Week 2', rate: 91 },
-    { name: 'Week 3', rate: 96 },
-    { name: 'Week 4', rate: 93 }
-  ];
+  // Real alert categories mapping
+  const sosTypesCount = activeSOSAlerts.reduce((acc, alert) => {
+    const type = alert.emergency_type || alert.emergencyType || 'General SOS';
+    acc[type] = (acc[type] || 0) + 1;
+    return acc;
+  }, {});
+  
+  const alertCategoriesData = Object.entries(sosTypesCount).map(([name, value], idx) => ({
+    name,
+    value: value,
+    fill: ['#60a5fa', '#818cf8', '#fb7185', '#f43f5e'][idx % 4]
+  }));
 
   // Bus assignment analytics calculations
   const autoAssigned = students.filter(s => s.assignment_status === 'ASSIGNED').length;
@@ -145,24 +132,10 @@ const ReportsPage = () => {
           <p className="text-[10px] text-slate-400 font-medium mb-6">Safety scores compared with daily telematics alerts.</p>
           
           <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={weeklySafetyData}>
-                <defs>
-                  <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.2} />
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis dataKey="name" stroke="#94a3b8" fontSize={10} tickLine={false} />
-                <YAxis yAxisId="left" stroke="#3b82f6" fontSize={10} tickLine={false} domain={[50, 100]} />
-                <YAxis yAxisId="right" orientation="right" stroke="#f43f5e" fontSize={10} tickLine={false} />
-                <Tooltip contentStyle={{ backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #f1f5f9', fontSize: '10px' }} />
-                <Area yAxisId="left" type="monotone" dataKey="score" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorScore)" name="Safety Index" />
-                <Bar yAxisId="right" dataKey="violations" fill="#f43f5e" radius={[3, 3, 0, 0]} name="Violations Count" barSize={12} />
-                <Legend wrapperStyle={{ fontSize: '10px', marginTop: '10px' }} />
-              </AreaChart>
-            </ResponsiveContainer>
+            <div className="h-full w-full flex flex-col items-center justify-center border border-dashed border-slate-200 rounded-2xl bg-slate-50 text-slate-400 font-semibold text-xs uppercase tracking-wider gap-2">
+              <ShieldAlert className="w-8 h-8 text-slate-300" />
+              Insufficient telemetry logs to compute safety trends
+            </div>
           </div>
         </div>
 
@@ -174,38 +147,49 @@ const ReportsPage = () => {
           </div>
 
           <div className="h-44 w-full flex items-center justify-center relative">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={alertCategoriesData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={50}
-                  outerRadius={70}
-                  paddingAngle={4}
-                  dataKey="value"
-                >
-                  {alertCategoriesData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.fill} />
-                  ))}
-                </Pie>
-                <Tooltip contentStyle={{ backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #f1f5f9', fontSize: '10px' }} />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="absolute flex flex-col items-center">
-              <span className="text-[10px] font-bold text-slate-450 uppercase leading-none">Total Logs</span>
-              <span className="text-lg font-black text-slate-800 mt-1">30</span>
-            </div>
+            {alertCategoriesData.length > 0 ? (
+              <>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={alertCategoriesData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={70}
+                      paddingAngle={4}
+                      dataKey="value"
+                    >
+                      {alertCategoriesData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.fill} />
+                      ))}
+                    </Pie>
+                    <Tooltip contentStyle={{ backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #f1f5f9', fontSize: '10px' }} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="absolute flex flex-col items-center">
+                  <span className="text-[10px] font-bold text-slate-450 uppercase leading-none">Total Logs</span>
+                  <span className="text-lg font-black text-slate-800 mt-1">{activeSOSAlerts.length}</span>
+                </div>
+              </>
+            ) : (
+              <div className="h-full w-full flex flex-col items-center justify-center border border-dashed border-slate-200 rounded-2xl bg-slate-50 text-slate-400 font-semibold text-xs uppercase tracking-wider gap-2">
+                <ShieldAlert className="w-8 h-8 text-slate-300" />
+                No active emergency alerts recorded today
+              </div>
+            )}
           </div>
 
-          <div className="grid grid-cols-2 gap-2 mt-4 text-[9px] font-bold">
-            {alertCategoriesData.map((item, idx) => (
-              <div key={idx} className="flex items-center gap-1.5 p-1.5 bg-slate-50 border border-slate-100 rounded-lg">
-                <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: item.fill }}></span>
-                <span className="text-slate-600 uppercase tracking-wider truncate">{item.name} ({item.value})</span>
-              </div>
-            ))}
-          </div>
+          {alertCategoriesData.length > 0 && (
+            <div className="grid grid-cols-2 gap-2 mt-4 text-[9px] font-bold">
+              {alertCategoriesData.map((item, idx) => (
+                <div key={idx} className="flex items-center gap-1.5 p-1.5 bg-slate-50 border border-slate-100 rounded-lg">
+                  <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: item.fill }}></span>
+                  <span className="text-slate-600 uppercase tracking-wider truncate">{item.name} ({item.value})</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
       </div>
@@ -219,15 +203,10 @@ const ReportsPage = () => {
           <p className="text-[10px] text-slate-400 font-medium mb-6">Pupils weekly average check-in percentages recorded this month.</p>
 
           <div className="h-48 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={attendanceMonthlyTrend} barSize={32}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis dataKey="name" stroke="#94a3b8" fontSize={10} tickLine={false} />
-                <YAxis domain={[80, 100]} stroke="#94a3b8" fontSize={10} tickLine={false} />
-                <Tooltip contentStyle={{ backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #f1f5f9', fontSize: '10px' }} />
-                <Bar dataKey="rate" fill="#10b981" radius={[4, 4, 0, 0]} name="Attendance Rate (%)" />
-              </BarChart>
-            </ResponsiveContainer>
+            <div className="h-full w-full flex flex-col items-center justify-center border border-dashed border-slate-200 rounded-2xl bg-slate-50 text-slate-400 font-semibold text-xs uppercase tracking-wider gap-2">
+              <UserCheck className="w-8 h-8 text-slate-300" />
+              Insufficient historical logs for monthly trend
+            </div>
           </div>
         </div>
 

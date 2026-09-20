@@ -13,8 +13,8 @@ const AdminDashboard = () => {
   const { 
     buses, 
     students, 
-    alerts, 
     driverBehavior, 
+    allDriverBehaviors = {},
     driverComplaints, 
     resolveComplaint,
     activeSOSAlerts = [],
@@ -23,6 +23,8 @@ const AdminDashboard = () => {
     resolveSOSAlert,
     triggerNotification = () => {}
   } = useApp();
+
+  const alerts = activeSOSAlerts || [];
 
   // Search input state
   const [searchQuery, setSearchQuery] = useState('');
@@ -99,34 +101,27 @@ const AdminDashboard = () => {
 
   // Behavior summary mapper for search details
   const getDriverBehaviorData = (busId) => {
-    if (busId === "TN38AB1234") {
-      return {
-        score: driverBehavior.safetyScore,
-        drowsy: driverBehavior.drowsiness ? "WARNING: Drowsy" : "Alert & Active",
-        phone: driverBehavior.mobileUsage ? "VIOLATION: Phone Use" : "Focus Checked",
-        seatbelt: driverBehavior.seatbelt ? "Buckled" : "WARNING: Unbuckled",
-        smoking: driverBehavior.smoking ? "VIOLATION: Smoking" : "Safe Cabin",
-        isNormal: !driverBehavior.drowsiness && !driverBehavior.mobileUsage && !driverBehavior.smoking && driverBehavior.seatbelt
-      };
-    }
-    // Mock values for Suresh & Kumar
-    if (busId === "TN38CD5678") {
-      return {
-        score: 92,
-        drowsy: "Alert & Active",
-        phone: "Focus Checked",
-        seatbelt: "Buckled",
-        smoking: "Safe Cabin",
-        isNormal: true
-      };
-    }
-    return {
-      score: 88,
-      drowsy: "Alert & Active",
-      phone: "Focus Checked",
-      seatbelt: "Buckled",
-      smoking: "Safe Cabin",
+    const defaultData = {
+      score: 95,
+      drowsy: "UNKNOWN",
+      phone: "UNKNOWN",
+      seatbelt: "UNKNOWN",
+      smoking: "UNKNOWN",
       isNormal: true
+    };
+    
+    const bh = allDriverBehaviors[busId] || (busId === "TN38AB1234" ? driverBehavior : null);
+    if (!bh) return defaultData;
+    
+    const isNormal = bh.status === 'NORMAL' || bh.status === 'UNKNOWN' || (!bh.drowsiness && !bh.mobileUsage && !bh.smoking && (bh.seatbelt !== false));
+    
+    return {
+      score: bh.safetyScore || 95,
+      drowsy: bh.status === 'DROWSY' || bh.drowsiness ? "WARNING: Drowsy" : (bh.status === 'UNKNOWN' ? "UNKNOWN" : "Alert & Active"),
+      phone: bh.status === 'PHONE_USAGE' || bh.mobileUsage ? "VIOLATION: Phone Use" : (bh.status === 'UNKNOWN' ? "UNKNOWN" : "Focus Checked"),
+      seatbelt: bh.seatbelt !== undefined ? (bh.seatbelt ? "Buckled" : "WARNING: Unbuckled") : "UNKNOWN",
+      smoking: bh.smoking ? "VIOLATION: Smoking" : (bh.status === 'UNKNOWN' ? "UNKNOWN" : "Safe Cabin"),
+      isNormal
     };
   };
 
@@ -449,15 +444,15 @@ const AdminDashboard = () => {
                       <AlertTriangle className="w-4 h-4" />
                     </div>
                     <div>
-                      <h4 className="text-xs font-bold text-slate-800">{alert.type}</h4>
+                      <h4 className="text-xs font-bold text-slate-800">{alert.emergency_type || alert.type}</h4>
                       <p className="text-[10px] text-slate-400 mt-0.5">
-                        Bus {alert.bus} | Driver: <span className="font-semibold text-slate-600">{alert.driver}</span>
+                        Bus {alert.bus_id || alert.bus} | Driver: <span className="font-semibold text-slate-600">{alert.driver_name || alert.driver}</span>
                       </p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <span className="px-2 py-0.5 text-[9px] font-extrabold uppercase rounded border bg-slate-50 border-slate-200 text-slate-500">
-                      {alert.time}
+                    <span className="px-2 py-0.5 text-[9px] font-extrabold uppercase rounded border bg-slate-50 border-slate-200 text-slate-500 font-mono">
+                      {alert.created_at ? new Date(alert.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : alert.time}
                     </span>
                   </div>
                 </div>

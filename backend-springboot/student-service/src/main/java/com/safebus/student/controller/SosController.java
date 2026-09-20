@@ -3,6 +3,12 @@ package com.safebus.student.controller;
 import com.safebus.student.entity.*;
 import com.safebus.student.service.SosService;
 import com.safebus.common.dto.response.ApiResponse;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -10,6 +16,7 @@ import java.util.*;
 
 @RestController
 @RequestMapping("/api/v1/sos")
+@Tag(name = "SOS Alerts", description = "SOS emergency alerts monitoring and resolution management APIs")
 public class SosController {
     private final SosService sosService;
 
@@ -18,6 +25,12 @@ public class SosController {
     }
 
     @PostMapping
+    @Operation(summary = "Trigger Emergency SOS Alert", description = "Dispatches a new emergency alert, publishes alert to notifications topic exchange, and computes nearest police station solvers.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "SOS emergency alert logged successfully"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "Duplicate alert conflicts detected"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "Database processing or station solver failure")
+    })
     public ResponseEntity<ApiResponse<Map<String, Object>>> triggerSos(@RequestBody Map<String, Object> req) {
         String correlationId = UUID.randomUUID().toString();
         try {
@@ -43,8 +56,12 @@ public class SosController {
     }
 
     @GetMapping("/active")
-    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getActiveSos() {
-        String correlationId = UUID.randomUUID().toString();
+    @Operation(summary = "Get Active SOS Alerts", description = "Fetch a list of active emergency events along with resolved nearby police station responders and chronological log timelines.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Active alerts list retrieved successfully"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "Server database query processing error")
+    })
+    public ResponseEntity<List<Map<String, Object>>> getActiveSos() {
         try {
             List<SosAlert> alerts = sosService.getActiveSos();
             List<Map<String, Object>> response = new ArrayList<>();
@@ -65,7 +82,6 @@ public class SosController {
                 entry.put("parent_notified", a.getParentNotified());
                 entry.put("admin_notified", a.getAdminNotified());
 
-                // Resolve police station details
                 PoliceStation ps = sosService.getPoliceStation(a.getPoliceStationId());
                 if (ps != null) {
                     entry.put("police_station", Map.of(
@@ -78,7 +94,6 @@ public class SosController {
                     entry.put("police_station", null);
                 }
 
-                // Resolve timeline audit logs
                 List<SosAuditLog> audits = sosService.getTimeline(a.getSosId());
                 List<Map<String, Object>> timeline = new ArrayList<>();
                 for (SosAuditLog audit : audits) {
@@ -94,27 +109,56 @@ public class SosController {
                 response.add(entry);
             }
 
-            return ResponseEntity.ok(ApiResponse.success("Active emergency alerts retrieved", response, correlationId));
+            return ResponseEntity.ok(response);
         } catch (Exception e) {
-            return ResponseEntity.status(500).body(ApiResponse.error(e.getMessage(), "SOS_003", correlationId));
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage());
         }
     }
 
     @GetMapping("/history")
-    public ResponseEntity<ApiResponse<List<SosAlert>>> getSosHistory() {
-        String correlationId = UUID.randomUUID().toString();
+    @Operation(summary = "Get SOS Resolve History", description = "Query resolved SOS emergency alerts archive details.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Historical reports retrieved successfully"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "Server database query processing error")
+    })
+    public ResponseEntity<List<SosAlert>> getSosHistory() {
         try {
             List<SosAlert> history = sosService.getSosHistory();
-            return ResponseEntity.ok(ApiResponse.success("Historical resolved alerts retrieved", history, correlationId));
+            return ResponseEntity.ok(history);
         } catch (Exception e) {
-            return ResponseEntity.status(500).body(ApiResponse.error(e.getMessage(), "SOS_004", correlationId));
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage());
         }
     }
 
+    @GetMapping("/statistics")
+    @Operation(summary = "Get SOS Alerts Statistics", description = "Query aggregated stats on total, resolved, average acknowledgment, and severity of SOS alerts.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "SOS alerts statistics retrieved successfully"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "Server database query processing error")
+    })
+    public ResponseEntity<Map<String, Object>> getSosStatistics() {
+        try {
+            Map<String, Object> statistics = sosService.getSosStatistics();
+            return ResponseEntity.ok(statistics);
+        } catch (Exception e) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage());
+        }
+    }
+
+
     @PostMapping("/{sosId}/acknowledge")
+    @Operation(summary = "Acknowledge Active SOS", description = "Enables command dispatchers or admins to register acknowledgment logs for an active SOS sequence.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "SOS Acknowledged successfully"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "SOS Alert ID not found"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "Server database logging processing failure")
+    })
     public ResponseEntity<ApiResponse<SosAlert>> acknowledgeSos(
-            @PathVariable String sosId,
-            @RequestParam(defaultValue = "Admin Command Center") String adminUser,
+            @Parameter(description = "UUID identifying the active SOS alert", example = "sos-uuid-88989") @PathVariable String sosId,
+            @Parameter(description = "Name of the admin operator performing the override", example = "Admin Center") @RequestParam(defaultValue = "Admin Command Center") String adminUser,
             HttpServletRequest request) {
         String correlationId = UUID.randomUUID().toString();
         try {
@@ -132,10 +176,16 @@ public class SosController {
     }
 
     @PostMapping("/{sosId}/resolve")
+    @Operation(summary = "Resolve SOS Alert", description = "Appends resolution remarks and marks the emergency event status as completed.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "SOS alert resolved successfully"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid parameter remarks supplied"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "SOS Alert ID not found")
+    })
     public ResponseEntity<ApiResponse<SosAlert>> resolveSos(
-            @PathVariable String sosId,
-            @RequestParam String remarks,
-            @RequestParam(defaultValue = "Admin Command Center") String adminUser) {
+            @Parameter(description = "UUID identifying the active SOS alert", example = "sos-uuid-88989") @PathVariable String sosId,
+            @Parameter(description = "Remarks summarizing the resolution action", example = "Tire flat resolved. Backup bus assigned.") @RequestParam String remarks,
+            @Parameter(description = "Name of the resolving operator", example = "Admin Center") @RequestParam(defaultValue = "Admin Command Center") String adminUser) {
         String correlationId = UUID.randomUUID().toString();
         try {
             SosAlert alert = sosService.resolveSos(sosId, adminUser, remarks);

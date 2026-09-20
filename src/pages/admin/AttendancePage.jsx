@@ -1,29 +1,43 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { QrCode, ScanFace, CheckSquare, Sparkles, UserCheck, CheckCircle2 } from 'lucide-react';
+import { QrCode, ScanFace, CheckSquare, Sparkles, UserCheck, CheckCircle2, Sun, RotateCcw, Users } from 'lucide-react';
 
 const AttendancePage = () => {
   const { students, handleStudentBoarding } = useApp();
-  const [scanResult, setScanResult] = useState(null); // { type: 'qr' | 'face', name: string, time: string }
+  const [scanResult, setScanResult] = useState(null); // { type: 'qr' | 'face', name: string, time: string, shift: string }
   const [faceActiveScan, setFaceActiveScan] = useState(false);
+  const [activeShift, setActiveShift] = useState('morning'); // 'morning' | 'return'
 
-  // Pick a student who has not boarded yet to check-in
-  const unboardedStudents = students.filter((s) => !s.boarded);
+  const isReturn = activeShift === 'return';
+
+  // Counts for each shift
+  const morningPresentCount = students.filter(s => s.boarded || s.morningAttendance === 'Present' || s.status === 'On Board' || s.status === 'Reached School').length;
+  const returnPresentCount = students.filter(s => s.boardedReturn || s.returnAttendance === 'Present' || s.status === 'Returning' || s.status === 'Reached Home').length;
+
+  // Pick a student who has not boarded yet for the ACTIVE shift
+  const unboardedStudents = students.filter((s) => {
+    if (isReturn) {
+      return !s.boardedReturn && s.returnAttendance !== 'Present' && s.status !== 'Returning' && s.status !== 'Reached Home';
+    }
+    return !s.boarded && s.morningAttendance !== 'Present' && s.status !== 'On Board' && s.status !== 'Reached School';
+  });
 
   const simulateQRScan = () => {
     if (unboardedStudents.length === 0) {
-      setScanResult({ error: 'All students are already boarded.' });
+      setScanResult({ error: `All students are already checked in for ${isReturn ? 'Evening Return' : 'Morning Boarding'}.` });
       setTimeout(() => setScanResult(null), 3000);
       return;
     }
 
     const student = unboardedStudents[Math.floor(Math.random() * unboardedStudents.length)];
-    handleStudentBoarding(student.id, 'boarded');
+    const boardingType = isReturn ? 'boardedReturn' : 'boarded';
+    handleStudentBoarding(student.id, boardingType);
 
     setScanResult({
       type: 'qr',
       name: student.name,
       roll: student.rollNo,
+      shift: isReturn ? 'Evening Return' : 'Morning Boarding',
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     });
 
@@ -32,7 +46,7 @@ const AttendancePage = () => {
 
   const simulateFaceScan = () => {
     if (unboardedStudents.length === 0) {
-      setScanResult({ error: 'All students are already checked in.' });
+      setScanResult({ error: `All students are already checked in for ${isReturn ? 'Evening Return' : 'Morning Boarding'}.` });
       setTimeout(() => setScanResult(null), 3000);
       return;
     }
@@ -40,15 +54,17 @@ const AttendancePage = () => {
     setFaceActiveScan(true);
 
     const student = unboardedStudents[Math.floor(Math.random() * unboardedStudents.length)];
+    const boardingType = isReturn ? 'boardedReturn' : 'boarded';
 
     setTimeout(() => {
-      handleStudentBoarding(student.id, 'boarded');
+      handleStudentBoarding(student.id, boardingType);
       setFaceActiveScan(false);
       setScanResult({
         type: 'face',
         name: student.name,
         roll: student.rollNo,
         class: student.class,
+        shift: isReturn ? 'Evening Return' : 'Morning Boarding',
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       });
       setTimeout(() => setScanResult(null), 3000);
@@ -58,11 +74,39 @@ const AttendancePage = () => {
   return (
     <div className="flex flex-col gap-6 p-6">
       {/* View Header */}
-      <div>
-        <h2 className="text-xl font-black text-slate-800 uppercase tracking-wide">Boarding Attendance Visualizer</h2>
-        <p className="text-xs text-slate-500 font-medium mt-0.5">
-          Verify and simulate boarding using QR Code scanner logs and Facial Recognition camera nodes.
-        </p>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-black text-slate-800 uppercase tracking-wide">Boarding Attendance Visualizer</h2>
+          <p className="text-xs text-slate-500 font-medium mt-0.5">
+            Verify and simulate boarding using QR Code scanner logs and Facial Recognition camera nodes.
+          </p>
+        </div>
+
+        {/* Shift Toggle Tabs */}
+        <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl border border-slate-200">
+          <button
+            onClick={() => setActiveShift('morning')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              !isReturn 
+                ? 'bg-amber-500 text-white shadow-sm' 
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Sun className="w-3.5 h-3.5" />
+            <span>☀ Morning Shift ({morningPresentCount}/{students.length})</span>
+          </button>
+          <button
+            onClick={() => setActiveShift('return')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              isReturn 
+                ? 'bg-blue-600 text-white shadow-sm' 
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>🌙 Return Shift ({returnPresentCount}/{students.length})</span>
+          </button>
+        </div>
       </div>
 
       {/* Simulator panels grid */}
@@ -188,13 +232,13 @@ const AttendancePage = () => {
               </div>
               <div>
                 <span className="text-[9px] font-extrabold uppercase text-emerald-600 tracking-wider block">
-                  Attendance Scanner Match
+                  {scanResult.shift || 'Boarding'} Attendance Match
                 </span>
                 <p className="text-xs font-black text-slate-800 mt-0.5">
                   Verified: <span className="underline">{scanResult.name}</span> (Roll: #{scanResult.roll})
                 </p>
                 <p className="text-[10px] text-slate-500 font-semibold mt-0.5">
-                  Check-in confirmed at <span className="font-bold">{scanResult.time}</span>. Parent notification trigger: SUCCESS.
+                  Check-in recorded for {scanResult.shift} at <span className="font-bold">{scanResult.time}</span>. Parent notification trigger: SUCCESS.
                 </p>
               </div>
             </>

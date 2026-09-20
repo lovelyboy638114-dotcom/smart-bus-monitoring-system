@@ -145,13 +145,51 @@ export const MapContainer: React.FC<MapContainerProps> = ({ buses, selectedBusId
   const normalizedSelectedId = selectedBusId === 'all' ? null : selectedBusId;
 
   // Local HUD panel and camera states
-  const [followMode, setFollowMode] = useState<boolean>(false);
+  const followMode = false;
+  const setFollowMode = () => {};
   const [fitAllTrigger, setFitAllTrigger] = useState<number>(0);
   const [currentZoom, setCurrentZoom] = useState<number>(12);
   const [currentCenter, setCurrentCenter] = useState<L.LatLng>(
     new L.LatLng(SCHOOL_LOCATION.lat, SCHOOL_LOCATION.lng)
   );
   const [cameraMessage, setCameraMessage] = useState<string | null>(null);
+
+  // Draggable HUD panel states
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartRef = useRef({ x: 0, y: 0 });
+  const elementStartRef = useRef({ x: 0, y: 0 });
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || target.closest('input') || target.closest('label') || target.closest('select')) {
+      return;
+    }
+    setIsDragging(true);
+    dragStartRef.current = { x: e.clientX, y: e.clientY };
+    elementStartRef.current = { x: dragOffset.x, y: dragOffset.y };
+  };
+
+  useEffect(() => {
+    if (!isDragging) return;
+    const handleMouseMove = (e: MouseEvent) => {
+      const dx = e.clientX - dragStartRef.current.x;
+      const dy = e.clientY - dragStartRef.current.y;
+      setDragOffset({
+        x: elementStartRef.current.x + dx,
+        y: elementStartRef.current.y + dy
+      });
+    };
+    const handleMouseUp = () => {
+      setIsDragging(false);
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging]);
 
   const handleMapStateChange = useCallback((zoom: number, center: L.LatLng) => {
     setCurrentZoom(zoom);
@@ -192,7 +230,11 @@ export const MapContainer: React.FC<MapContainerProps> = ({ buses, selectedBusId
   return (
     <div className="w-full h-full relative z-0 bg-slate-50 overflow-hidden select-none">
       {/* FLOATING CONTROLS: Top Right Glassmorphism Control Center Overlay Panel */}
-      <div className="absolute top-4 right-4 bg-white/80 backdrop-blur-md border border-slate-200/50 shadow-premium p-4 rounded-2xl z-[1000] font-sans flex flex-col gap-3 min-w-[220px] text-xs text-slate-800 text-left">
+      <div 
+        onMouseDown={handleMouseDown}
+        style={{ transform: `translate(${dragOffset.x}px, ${dragOffset.y}px)` }}
+        className="absolute top-4 right-4 bg-white/80 backdrop-blur-md border border-slate-200/50 shadow-premium p-4 rounded-2xl z-[1000] font-sans flex flex-col gap-3 min-w-[220px] text-xs text-slate-800 text-left select-none cursor-move"
+      >
         <div>
           <span className="text-[9px] font-black uppercase text-blue-600 block leading-none mb-1">
             Map Controls
@@ -210,20 +252,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({ buses, selectedBusId
             <span>Fit All Fleet</span>
           </button>
 
-          {/* Follow Mode Toggle switch (only active if a bus is selected) */}
-          <div className="flex items-center justify-between py-1">
-            <span className="font-semibold text-slate-600">Follow Selected Bus</span>
-            <label className={`relative inline-flex items-center ${normalizedSelectedId ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}>
-              <input
-                type="checkbox"
-                checked={followMode}
-                disabled={!normalizedSelectedId}
-                onChange={(e) => setFollowMode(e.target.checked)}
-                className="sr-only peer"
-              />
-              <div className="w-8 h-4 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-blue-600"></div>
-            </label>
-          </div>
+
 
           {/* Center camera on active bus button */}
           <button
@@ -334,6 +363,11 @@ export const MapContainer: React.FC<MapContainerProps> = ({ buses, selectedBusId
         {/* Overlay Layers */}
         {buses.map((busItem) => {
           const isSelected = normalizedSelectedId === null || normalizedSelectedId === busItem.id;
+
+          // If a specific bus is selected, only show the selected bus layers (hide all others)
+          if (normalizedSelectedId !== null && !isSelected) {
+            return null;
+          }
 
           return (
             <React.Fragment key={busItem.id}>

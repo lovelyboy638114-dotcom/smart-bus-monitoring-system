@@ -1,10 +1,34 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
 import LeafletMap from '../../components/LeafletMap';
 import { Compass, Users, MapPin, ToggleLeft, ToggleRight, Play, Square, AlertTriangle, Layers } from 'lucide-react';
 
 const LiveTracking = () => {
-  const { buses, selectedBusId, setSelectedBusId, toggleBusDeviation, updateBusTripStatus } = useApp();
+  const { buses, selectedBusId, setSelectedBusId, toggleBusDeviation, updateBusTripStatus, advanceLocalBusSimulation, resetSimulation, triggerNotification } = useApp();
+
+  const [activeSimulationBus, setActiveSimulationBus] = useState(null);
+  const simIntervalRef = useRef(null);
+
+  const startAutoSimulation = (busId) => {
+    if (activeSimulationBus === busId) {
+      clearInterval(simIntervalRef.current);
+      simIntervalRef.current = null;
+      setActiveSimulationBus(null);
+    } else {
+      if (simIntervalRef.current) clearInterval(simIntervalRef.current);
+      
+      setActiveSimulationBus(busId);
+      simIntervalRef.current = setInterval(() => {
+        advanceLocalBusSimulation(busId);
+      }, 600);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (simIntervalRef.current) clearInterval(simIntervalRef.current);
+    };
+  }, []);
 
   // If selectedBusId is "all", we show overall fleet, otherwise we find the specific bus
   const isAllSelected = selectedBusId === "all";
@@ -175,6 +199,40 @@ const LiveTracking = () => {
                   >
                     <Square className="w-3.5 h-3.5 fill-rose-600" />
                     <span>End Trip</span>
+                  </button>
+                </div>
+
+                {/* Local Proximity & Boarding Simulator Console */}
+                <div className="flex bg-slate-50 p-1.5 rounded-xl border border-slate-150 gap-1.5">
+                  <button
+                    onClick={() => startAutoSimulation(selectedBus.id)}
+                    className={`px-3.5 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm border border-slate-200/50 transition-smooth ${
+                      activeSimulationBus === selectedBus.id
+                        ? 'bg-rose-600 text-white hover:bg-rose-700 border-rose-600 shadow-md animate-pulse-ring'
+                        : 'bg-white text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <Play className={`w-3.5 h-3.5 ${activeSimulationBus === selectedBus.id ? 'fill-white' : 'fill-slate-600'}`} />
+                    <span>{activeSimulationBus === selectedBus.id ? 'Pause Auto-Drive' : 'Auto-Drive (Proximity Alert & Boarding)'}</span>
+                  </button>
+                  <button
+                    onClick={() => advanceLocalBusSimulation(selectedBus.id)}
+                    className="px-3.5 py-2 bg-white hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm border border-slate-200/50 transition-smooth"
+                  >
+                    <span>Step Forward</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (simIntervalRef.current) {
+                        clearInterval(simIntervalRef.current);
+                        simIntervalRef.current = null;
+                        setActiveSimulationBus(null);
+                      }
+                      resetSimulation();
+                    }}
+                    className="px-3.5 py-2 bg-white hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm border border-slate-200/50 transition-smooth"
+                  >
+                    <span>Reset Simulation</span>
                   </button>
                 </div>
 

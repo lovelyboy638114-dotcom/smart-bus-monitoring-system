@@ -4,6 +4,7 @@ import com.safebus.student.entity.Parent;
 import com.safebus.student.entity.Student;
 import com.safebus.student.service.StudentService;
 import com.safebus.common.dto.response.ApiResponse;
+import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
@@ -17,6 +18,12 @@ public class StudentController {
 
     public StudentController(StudentService studentService) {
         this.studentService = studentService;
+    }
+
+    @GetMapping
+    @Operation(summary = "Get All Students", description = "Query detailed registration profile lists for all students.")
+    public ResponseEntity<List<Student>> getAllStudents() {
+        return ResponseEntity.ok(studentService.getAllStudents());
     }
 
     @GetMapping("/parent/profile")
@@ -64,7 +71,7 @@ public class StudentController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<Student>> getStudentById(@PathVariable String id) {
+    public ResponseEntity<ApiResponse<Student>> getStudentById(@PathVariable("id") String id) {
         String correlationId = UUID.randomUUID().toString();
         Optional<Student> studentOpt = studentService.getStudentById(id);
         if (studentOpt.isPresent()) {
@@ -76,7 +83,7 @@ public class StudentController {
     }
 
     @PostMapping("/{studentId}/regenerate-id-card")
-    public ResponseEntity<ApiResponse<Student>> regenerateIdCard(@PathVariable String studentId) {
+    public ResponseEntity<ApiResponse<Student>> regenerateIdCard(@PathVariable("studentId") String studentId) {
         String correlationId = UUID.randomUUID().toString();
         try {
             Student updatedStudent = studentService.regenerateIdCard(studentId);
@@ -89,9 +96,9 @@ public class StudentController {
 
     @PutMapping("/{studentId}/assign-bus")
     public ResponseEntity<ApiResponse<Student>> assignBusToStudent(
-            @PathVariable String studentId,
-            @RequestParam String busId,
-            @RequestParam String status) {
+            @PathVariable("studentId") String studentId,
+            @RequestParam("busId") String busId,
+            @RequestParam("status") String status) {
         String correlationId = UUID.randomUUID().toString();
         try {
             Student student = studentService.updateStudentBusAssignment(studentId, busId, status);
@@ -103,7 +110,7 @@ public class StudentController {
     }
 
     @GetMapping("/assigned-count")
-    public ResponseEntity<ApiResponse<Long>> getAssignedCount(@RequestParam String busId) {
+    public ResponseEntity<ApiResponse<Long>> getAssignedCount(@RequestParam("busId") String busId) {
         String correlationId = UUID.randomUUID().toString();
         try {
             long count = studentService.getAssignedCount(busId);
@@ -111,6 +118,22 @@ public class StudentController {
         } catch (Exception e) {
             return ResponseEntity.status(500)
                     .body(ApiResponse.error(e.getMessage(), "STU_001", correlationId));
+        }
+    }
+
+    @PutMapping("/{studentId}/board")
+    @Operation(summary = "Update Student Boarding/Transit Status", description = "Updates student boarded, boardedTime, reachedSchool, etc. fields when a scan occurs.")
+    public ResponseEntity<ApiResponse<Student>> updateBoardingStatus(
+            @PathVariable("studentId") String studentId,
+            @RequestParam("boardingType") String boardingType,
+            @RequestParam(value = "scanTime", required = false) String scanTime) {
+        String correlationId = UUID.randomUUID().toString();
+        try {
+            Student updated = studentService.updateBoardingStatus(studentId, boardingType, scanTime);
+            return ResponseEntity.ok(ApiResponse.success("Boarding status updated successfully", updated, correlationId));
+        } catch (Exception e) {
+            return ResponseEntity.status(500)
+                    .body(ApiResponse.error("Failed to update boarding status: " + e.getMessage(), "BOARD_500", correlationId));
         }
     }
 }

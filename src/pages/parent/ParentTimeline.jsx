@@ -10,7 +10,7 @@ const ParentTimeline = () => {
     name: 'Student',
     rollNo: '',
     assignedBus: 'Bus 1',
-    pickupStop: 'Gandhipuram Bus Stand',
+    pickupStop: 'Ukkadam Bus Stand',
     attendance: 'Not Checked In',
     parentContact: '',
     status: 'Waiting',
