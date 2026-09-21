@@ -75,24 +75,24 @@ CONFIG_FLAGS="--spring.cloud.config.enabled=false --spring.config.import=file:/a
 
 # 4. Start Core Domain Microservices sequentially to prevent CPU/memory spikes
 echo "[4/7] Starting Auth Service on port 8081..."
-java -Xms16m -Xmx72m -XX:MaxMetaspaceSize=75m $COMMON_JVM_OPTS -Dserver.port=8081 -jar auth-service.jar $CONFIG_FLAGS,file:/app/config/auth-service.yml > /tmp/auth.log 2>&1 &
-wait_for_port 8081 "Auth Service" $! 30
+java -Xms16m -Xmx80m $COMMON_JVM_OPTS -Dserver.port=8081 -jar auth-service.jar $CONFIG_FLAGS,file:/app/config/auth-service.yml > /tmp/auth.log 2>&1 &
+wait_for_port 8081 "Auth Service" $! 35
 
 echo "[5/7] Starting Student Service on port 8082..."
-java -Xms16m -Xmx56m -XX:MaxMetaspaceSize=90m $COMMON_JVM_OPTS -Dserver.port=8082 -jar student-service.jar $CONFIG_FLAGS,file:/app/config/student-service.yml > /tmp/student.log 2>&1 &
-wait_for_port 8082 "Student Service" $! 30
+java -Xms16m -Xmx64m $COMMON_JVM_OPTS -Dserver.port=8082 -jar student-service.jar $CONFIG_FLAGS,file:/app/config/student-service.yml > /tmp/student.log 2>&1 &
+wait_for_port 8082 "Student Service" $! 35
 
 echo "[6/7] Starting Transport Service on port 8083..."
-java -Xms16m -Xmx44m -XX:MaxMetaspaceSize=70m $COMMON_JVM_OPTS -Dserver.port=8083 -jar transport-service.jar $CONFIG_FLAGS,file:/app/config/transport-service.yml > /tmp/transport.log 2>&1 &
-wait_for_port 8083 "Transport Service" $! 30
+java -Xms16m -Xmx48m $COMMON_JVM_OPTS -Dserver.port=8083 -jar transport-service.jar $CONFIG_FLAGS,file:/app/config/transport-service.yml > /tmp/transport.log 2>&1 &
+wait_for_port 8083 "Transport Service" $! 35
 
 echo "[7/7] Starting Attendance Service on port 8084..."
-java -Xms16m -Xmx44m -XX:MaxMetaspaceSize=70m $COMMON_JVM_OPTS -Dserver.port=8084 -jar attendance-service.jar $CONFIG_FLAGS,file:/app/config/attendance-service.yml > /tmp/attendance.log 2>&1 &
-wait_for_port 8084 "Attendance Service" $! 30
+java -Xms16m -Xmx40m $COMMON_JVM_OPTS -Dserver.port=8084 -jar attendance-service.jar $CONFIG_FLAGS,file:/app/config/attendance-service.yml > /tmp/attendance.log 2>&1 &
+wait_for_port 8084 "Attendance Service" $! 35
 
 echo "[Bonus] Starting Notification Service on port 8086..."
-java -Xms16m -Xmx44m -XX:MaxMetaspaceSize=70m $COMMON_JVM_OPTS -Dserver.port=8086 -jar notification-service.jar $CONFIG_FLAGS,file:/app/config/notification-service.yml > /tmp/notification.log 2>&1 &
-wait_for_port 8086 "Notification Service" $! 30
+java -Xms16m -Xmx40m $COMMON_JVM_OPTS -Dserver.port=8086 -jar notification-service.jar $CONFIG_FLAGS,file:/app/config/notification-service.yml > /tmp/notification.log 2>&1 &
+wait_for_port 8086 "Notification Service" $! 35
 
 # 5. Start API Gateway on main exposed PORT in foreground
 echo "=== Starting Spring Cloud API Gateway on port ${GATEWAY_PORT} (Public Entrypoint) ==="
