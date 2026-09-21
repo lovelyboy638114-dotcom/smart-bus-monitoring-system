@@ -1,3 +1,3 @@
 server:
-  port: ${PORT:8084}
+  port: ${ATTENDANCE_PORT:8084}
 

@@ -686,7 +686,7 @@ class FrameProcessorHandler(BaseHTTPRequestHandler):
 
 
 def run_http_server():
-    port = int(os.environ.get('PORT', 5001))
+    port = int(os.environ.get('CV_PORT', 5001))
     server_address = ('', port)
     httpd = ThreadingHTTPServer(server_address, FrameProcessorHandler)
     print(f"\n[SafeBus AI] Multi-Camera CV HTTP Service listening on port {port} (High-Precision Eye & Face Tracker Ready)...")

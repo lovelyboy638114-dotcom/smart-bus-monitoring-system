@@ -1,3 +1,3 @@
 server:
-  port: ${PORT:8086}
+  port: ${NOTIFICATION_PORT:8086}
 
