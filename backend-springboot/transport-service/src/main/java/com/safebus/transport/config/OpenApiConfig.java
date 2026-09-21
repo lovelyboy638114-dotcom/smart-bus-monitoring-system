@@ -3,10 +3,11 @@ package com.safebus.transport.config;
 import com.safebus.common.config.BaseOpenApiConfig;
 import io.swagger.v3.oas.models.OpenAPI;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-@Configuration
+@Configuration("transportOpenApiConfig")
 public class OpenApiConfig extends BaseOpenApiConfig {
 
     @Value("${server.url:http://localhost:${server.port:8083}}")
@@ -16,6 +17,7 @@ public class OpenApiConfig extends BaseOpenApiConfig {
     private String gatewayUrl;
 
     @Bean
+    @ConditionalOnMissingBean
     public OpenAPI customOpenAPI() {
         return createOpenAPI(
                 "SafeBus AI Transport Service API",
