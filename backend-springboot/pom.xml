@@ -57,9 +57,9 @@
         <module>api-gateway</module>
         <module>auth-service</module>
         <module>student-service</module>
-        <module>transport-service</module>
         <module>attendance-service</module>
         <module>notification-service</module>
+        <module>transport-service</module>
     </modules>
 
     <build>
