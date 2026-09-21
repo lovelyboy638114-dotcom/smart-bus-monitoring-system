@@ -32,6 +32,7 @@ env/
 .env.*
 !.env.example
 schema_init.sql
+tcp_proxy.py
 
 # =========================
 # IDE

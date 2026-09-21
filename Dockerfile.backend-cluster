@@ -1,0 +1,60 @@
+# Stage 1: Build all Spring Boot Microservices
+FROM maven:3.9.6-eclipse-temurin-21 AS build
+WORKDIR /build
+
+COPY backend-springboot/pom.xml .
+COPY backend-springboot/safebus-common ./safebus-common
+COPY backend-springboot/eureka-server ./eureka-server
+COPY backend-springboot/config-server ./config-server
+COPY backend-springboot/api-gateway ./api-gateway
+COPY backend-springboot/auth-service ./auth-service
+COPY backend-springboot/student-service ./student-service
+COPY backend-springboot/transport-service ./transport-service
+COPY backend-springboot/attendance-service ./attendance-service
+COPY backend-springboot/notification-service ./notification-service
+
+RUN mvn clean package -DskipTests
+
+# Stage 2: Runtime Image with Java 21 + Python 3.11
+FROM eclipse-temurin:21-jdk-jammy
+
+WORKDIR /app
+
+# Install Python 3, pip, curl, and required multimedia/OpenCV libraries
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    python3-pip \
+    python3-dev \
+    curl \
+    libgl1 \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python requirements
+COPY backend/requirements.txt ./backend/requirements.txt
+RUN pip3 install --no-cache-dir --break-system-packages -r ./backend/requirements.txt
+
+# Copy Python CV service files
+COPY backend/ ./backend/
+
+# Copy all compiled Spring Boot microservice JARs from builder
+COPY --from=build /build/eureka-server/target/safebus-eureka-server-*.jar ./eureka-server.jar
+COPY --from=build /build/config-server/target/safebus-config-server-*.jar ./config-server.jar
+COPY --from=build /build/api-gateway/target/safebus-api-gateway-*.jar ./api-gateway.jar
+COPY --from=build /build/auth-service/target/safebus-auth-service-*.jar ./auth-service.jar
+COPY --from=build /build/student-service/target/safebus-student-service-*.jar ./student-service.jar
+COPY --from=build /build/transport-service/target/safebus-transport-service-*.jar ./transport-service.jar
+COPY --from=build /build/attendance-service/target/safebus-attendance-service-*.jar ./attendance-service.jar
+COPY --from=build /build/notification-service/target/safebus-notification-service-*.jar ./notification-service.jar
+
+# Copy cluster startup script
+COPY start_cluster.sh ./start_cluster.sh
+RUN tr -d '\r' < ./start_cluster.sh > ./start_cluster_unix.sh && mv ./start_cluster_unix.sh ./start_cluster.sh && chmod +x ./start_cluster.sh
+
+ENV PORT=8080
+EXPOSE 8080
+
+ENTRYPOINT ["./start_cluster.sh"]
