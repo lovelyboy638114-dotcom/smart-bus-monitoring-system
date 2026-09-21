@@ -49,6 +49,7 @@ COPY --from=build /build/student-service/target/safebus-student-service-1.0.0.ja
 COPY --from=build /build/transport-service/target/safebus-transport-service-1.0.0.jar ./transport-service.jar
 COPY --from=build /build/attendance-service/target/safebus-attendance-service-1.0.0.jar ./attendance-service.jar
 COPY --from=build /build/notification-service/target/safebus-notification-service-1.0.0.jar ./notification-service.jar
+COPY --from=build /build/config-server/src/main/resources/config ./config
 
 # Copy cluster startup script
 COPY start_cluster.sh ./start_cluster.sh
