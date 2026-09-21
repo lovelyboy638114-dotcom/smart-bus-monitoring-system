@@ -10,7 +10,14 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
+import org.springframework.boot.autoconfigure.domain.EntityScan;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
+
 @SpringBootApplication
+@ComponentScan(basePackages = {"com.safebus.transport", "com.safebus.attendance", "com.safebus.notification"})
+@EntityScan(basePackages = {"com.safebus.transport", "com.safebus.attendance", "com.safebus.notification"})
+@EnableJpaRepositories(basePackages = {"com.safebus.transport", "com.safebus.attendance", "com.safebus.notification"})
 @EnableDiscoveryClient
 @EnableAsync
 @EnableScheduling

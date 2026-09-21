@@ -44,13 +44,13 @@ spring:
         
         # Attendance Service Route
         - id: attendance-service
-          uri: ${ATTENDANCE_SERVICE_URI:http://127.0.0.1:8084}
+          uri: ${ATTENDANCE_SERVICE_URI:http://127.0.0.1:8083}
           predicates:
             - Path=/api/v1/attendance/**
 
         # Notification Service Route
         - id: notification-service
-          uri: ${NOTIFICATION_SERVICE_URI:http://127.0.0.1:8086}
+          uri: ${NOTIFICATION_SERVICE_URI:http://127.0.0.1:8083}
           predicates:
             - Path=/api/v1/notifications/**
 
@@ -64,7 +64,7 @@ spring:
 
         # WebSocket Route
         - id: websocket-route
-          uri: ${WS_SERVICE_URI:ws://127.0.0.1:8086}
+          uri: ${WS_SERVICE_URI:ws://127.0.0.1:8083}
           predicates:
             - Path=/ws/**
 
