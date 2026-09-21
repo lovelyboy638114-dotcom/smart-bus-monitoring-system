@@ -35,7 +35,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Install Python requirements for CV Monitor
 COPY backend/requirements-cv.txt ./backend/requirements-cv.txt
-RUN pip3 install --no-cache-dir --break-system-packages -r ./backend/requirements-cv.txt
+RUN pip3 install --no-cache-dir -r ./backend/requirements-cv.txt
 
 # Copy Python CV service files
 COPY backend/ ./backend/
