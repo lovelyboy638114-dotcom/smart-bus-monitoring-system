@@ -11,7 +11,7 @@ GATEWAY_PORT=${PORT:-8080}
 unset PORT
 
 # High-efficiency, low-memory JVM parameters for cloud microservices
-COMMON_JVM_OPTS="-XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Xss228k -XX:MaxMetaspaceSize=64m -XX:CompressedClassSpaceSize=16m -XX:ReservedCodeCacheSize=16m -Djava.net.preferIPv4Stack=true -XX:+ExitOnOutOfMemoryError"
+COMMON_JVM_OPTS="-XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Xss228k -Djava.net.preferIPv4Stack=true"
 
 # Cloud infrastructure environment variables
 export SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL:-"jdbc:mysql://mysql.railway.internal:3306/railway?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true"}

@@ -12,6 +12,7 @@ Uses MediaPipe FaceLandmarker and OpenCV to detect:
   7. CAMERA ABSTRACTION: Integrated with backend/camera_source.py for vehicle cameras
 """
 
+import os
 import cv2
 import numpy as np
 import requests
