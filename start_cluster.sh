@@ -15,7 +15,7 @@ GATEWAY_PORT=${PORT:-8080}
 unset PORT
 
 # High-efficiency, low-memory JVM parameters for cloud microservices (tuned for 1024MB container)
-COMMON_JVM_OPTS="-XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:CICompilerCount=2 -Xss256k -XX:ReservedCodeCacheSize=12m -XX:MinHeapFreeRatio=5 -XX:MaxHeapFreeRatio=15 -Dspringdoc.api-docs.enabled=false -Dspringdoc.swagger-ui.enabled=false -Dspring.jpa.hibernate.ddl-auto=none -Dserver.tomcat.threads.max=4 -Dserver.tomcat.threads.min-spare=1 -Dreactor.netty.ioWorkerCount=2 -Djava.net.preferIPv4Stack=true"
+COMMON_JVM_OPTS="-XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:CICompilerCount=2 -Xss228k -XX:ReservedCodeCacheSize=10m -XX:MinHeapFreeRatio=5 -XX:MaxHeapFreeRatio=15 -Deureka.client.enabled=false -Dspringdoc.api-docs.enabled=false -Dspringdoc.swagger-ui.enabled=false -Dspring.jpa.hibernate.ddl-auto=none -Dserver.tomcat.threads.max=2 -Dserver.tomcat.threads.min-spare=1 -Dreactor.netty.ioWorkerCount=2 -Djava.net.preferIPv4Stack=true"
 
 # Cloud infrastructure environment variables
 export SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL:-"jdbc:mysql://mysql.railway.internal:3306/railway?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true"}
@@ -28,7 +28,7 @@ export SPRING_RABBITMQ_PASSWORD=${SPRING_RABBITMQ_PASSWORD:-"guest"}
 export EUREKA_SERVER_URL=${EUREKA_SERVER_URL:-"http://127.0.0.1:8761/eureka/"}
 
 # Ensure log files exist so tail can attach
-touch /tmp/eureka.log /tmp/cv.log /tmp/auth.log /tmp/student.log /tmp/transport.log /tmp/attendance.log /tmp/notification.log /tmp/gateway.log
+touch /tmp/cv.log /tmp/auth.log /tmp/student.log /tmp/transport.log /tmp/attendance.log /tmp/notification.log /tmp/gateway.log
 
 # Stream background service logs so Railway captures all process logs
 tail -q -n 0 -F /tmp/*.log &
@@ -45,6 +45,7 @@ wait_for_port() {
       if [ -n "$pid" ]; then
         jcmd "$pid" GC.run > /dev/null 2>&1 || true
       fi
+      sleep 1
       return 0
     fi
     sleep 1
@@ -52,20 +53,18 @@ wait_for_port() {
   echo "  -> [Notice] ${name} on port ${port} still starting..."
 }
 
-# 1. Start Eureka Discovery Server (Port 8761)
-echo "[1/8] Starting Eureka Discovery Server on port 8761..."
-java -Xms12m -Xmx36m $COMMON_JVM_OPTS -Dserver.port=8761 -jar eureka-server.jar > /tmp/eureka.log 2>&1 &
-wait_for_port 8761 "Eureka Server" $! 30
+# 1. Intra-cluster direct routing (Saves 106MB JVM RAM by omitting redundant Eureka Discovery server)
+echo "[1/7] Intra-cluster direct routing active (127.0.0.1 loopback)..."
 
 # 2. Start Lightweight Config Provider on port 8888 (Serves /app/config directly, saves 140MB JVM)
-echo "[2/8] Initializing Cloud Configuration provider on port 8888..."
+echo "[2/7] Initializing Cloud Configuration provider on port 8888..."
 cd /app/config
 python3 -m http.server 8888 > /dev/null 2>&1 &
 cd /app
 sleep 1
 
 # 3. Start Python Edge AI CV Driver Monitor (Port 5001)
-echo "[3/8] Starting Python AI CV Driver Monitor on port 5001..."
+echo "[3/7] Starting Python AI CV Driver Monitor on port 5001..."
 cd /app/backend
 CV_PORT=5001 python3 cv_driver_monitor.py > /tmp/cv.log 2>&1 &
 cd /app
@@ -75,26 +74,26 @@ sleep 2
 CONFIG_FLAGS="--spring.cloud.config.enabled=false --spring.config.import=file:/app/config/application.yml"
 
 # 4. Start Core Domain Microservices sequentially to prevent CPU/memory spikes
-echo "[4/8] Starting Auth Service on port 8081..."
-java -Xms16m -Xmx80m $COMMON_JVM_OPTS -Dserver.port=8081 -jar auth-service.jar $CONFIG_FLAGS,file:/app/config/auth-service.yml > /tmp/auth.log 2>&1 &
+echo "[4/7] Starting Auth Service on port 8081..."
+java -Xms16m -Xmx72m -XX:MaxMetaspaceSize=75m $COMMON_JVM_OPTS -Dserver.port=8081 -jar auth-service.jar $CONFIG_FLAGS,file:/app/config/auth-service.yml > /tmp/auth.log 2>&1 &
 wait_for_port 8081 "Auth Service" $! 30
 
-echo "[5/8] Starting Student Service on port 8082..."
-java -Xms16m -Xmx64m $COMMON_JVM_OPTS -Dserver.port=8082 -jar student-service.jar $CONFIG_FLAGS,file:/app/config/student-service.yml > /tmp/student.log 2>&1 &
+echo "[5/7] Starting Student Service on port 8082..."
+java -Xms16m -Xmx56m -XX:MaxMetaspaceSize=90m $COMMON_JVM_OPTS -Dserver.port=8082 -jar student-service.jar $CONFIG_FLAGS,file:/app/config/student-service.yml > /tmp/student.log 2>&1 &
 wait_for_port 8082 "Student Service" $! 30
 
-echo "[6/8] Starting Transport Service on port 8083..."
-java -Xms16m -Xmx64m $COMMON_JVM_OPTS -Dserver.port=8083 -jar transport-service.jar $CONFIG_FLAGS,file:/app/config/transport-service.yml > /tmp/transport.log 2>&1 &
+echo "[6/7] Starting Transport Service on port 8083..."
+java -Xms16m -Xmx44m -XX:MaxMetaspaceSize=70m $COMMON_JVM_OPTS -Dserver.port=8083 -jar transport-service.jar $CONFIG_FLAGS,file:/app/config/transport-service.yml > /tmp/transport.log 2>&1 &
 wait_for_port 8083 "Transport Service" $! 30
 
-echo "[7/8] Starting Attendance Service on port 8084..."
-java -Xms16m -Xmx64m $COMMON_JVM_OPTS -Dserver.port=8084 -jar attendance-service.jar $CONFIG_FLAGS,file:/app/config/attendance-service.yml > /tmp/attendance.log 2>&1 &
+echo "[7/7] Starting Attendance Service on port 8084..."
+java -Xms16m -Xmx44m -XX:MaxMetaspaceSize=70m $COMMON_JVM_OPTS -Dserver.port=8084 -jar attendance-service.jar $CONFIG_FLAGS,file:/app/config/attendance-service.yml > /tmp/attendance.log 2>&1 &
 wait_for_port 8084 "Attendance Service" $! 30
 
-echo "[8/8] Starting Notification Service on port 8086..."
-java -Xms16m -Xmx64m $COMMON_JVM_OPTS -Dserver.port=8086 -jar notification-service.jar $CONFIG_FLAGS,file:/app/config/notification-service.yml > /tmp/notification.log 2>&1 &
+echo "[Bonus] Starting Notification Service on port 8086..."
+java -Xms16m -Xmx44m -XX:MaxMetaspaceSize=70m $COMMON_JVM_OPTS -Dserver.port=8086 -jar notification-service.jar $CONFIG_FLAGS,file:/app/config/notification-service.yml > /tmp/notification.log 2>&1 &
 wait_for_port 8086 "Notification Service" $! 30
 
 # 5. Start API Gateway on main exposed PORT in foreground
 echo "=== Starting Spring Cloud API Gateway on port ${GATEWAY_PORT} (Public Entrypoint) ==="
-exec java -Xms16m -Xmx48m $COMMON_JVM_OPTS -Dserver.port=${GATEWAY_PORT} -jar api-gateway.jar $CONFIG_FLAGS,file:/app/config/api-gateway.yml
+exec java -Xms16m -Xmx40m -XX:MaxMetaspaceSize=65m $COMMON_JVM_OPTS -Dserver.port=${GATEWAY_PORT} -jar api-gateway.jar $CONFIG_FLAGS,file:/app/config/api-gateway.yml
