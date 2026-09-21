@@ -30,15 +30,19 @@ start "Student Service" cmd /c ".\mvnw.cmd spring-boot:run -pl student-service"
 echo [6/8] Starting Transport Service (Port 8083)...
 start "Transport Service" cmd /c ".\mvnw.cmd spring-boot:run -pl transport-service"
 
-echo [7/8] Starting Notification Service (Port 8084)...
+echo [7/9] Starting Notification Service (Port 8086)...
 start "Notification Service" cmd /c ".\mvnw.cmd spring-boot:run -pl notification-service"
 
-echo [8/8] Starting Attendance Service (Port 8085)...
+echo [8/9] Starting Attendance Service (Port 8084)...
 start "Attendance Service" cmd /c ".\mvnw.cmd spring-boot:run -pl attendance-service"
+
+cd ..
+echo [9/9] Starting Python AI CV Driver Monitor (Port 5001)...
+start "Python CV Driver Monitor" cmd /c "py -u backend\cv_driver_monitor.py --service"
 
 echo.
 echo ====================================================
-echo   All microservices launched in separate windows!
+echo   All 9 SafeBus AI Backends launched successfully!
 echo ====================================================
-cd ..
 pause
+

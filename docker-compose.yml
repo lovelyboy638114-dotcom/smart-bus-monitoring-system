@@ -1,0 +1,254 @@
+version: '3.8'
+
+services:
+  # ======================================================
+  # 1. Infrastructure: MySQL Database
+  # ======================================================
+  safebus-mysql:
+    image: mysql:8.0
+    container_name: safebus-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD:-sathish@6064}
+      MYSQL_DATABASE: safebus
+    ports:
+      - "3306:3306"
+    volumes:
+      - safebus_mysql_data:/var/lib/mysql
+    networks:
+      - safebus-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_PASSWORD:-sathish@6064}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ======================================================
+  # 2. Infrastructure: RabbitMQ Message Broker
+  # ======================================================
+  safebus-rabbitmq:
+    image: rabbitmq:3-management
+    container_name: safebus-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - safebus_rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - safebus-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ======================================================
+  # 3. Discovery Service: Netflix Eureka Server
+  # ======================================================
+  eureka-server:
+    build:
+      context: ./backend-springboot
+      dockerfile: eureka-server/Dockerfile
+    container_name: safebus-eureka-server
+    restart: unless-stopped
+    ports:
+      - "8761:8761"
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+    networks:
+      - safebus-network
+
+  # ======================================================
+  # 4. Spring Cloud Config Server
+  # ======================================================
+  config-server:
+    build:
+      context: ./backend-springboot
+      dockerfile: config-server/Dockerfile
+    container_name: safebus-config-server
+    restart: unless-stopped
+    ports:
+      - "8888:8888"
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - SPRING_PROFILES_ACTIVE=prod
+    depends_on:
+      - eureka-server
+    networks:
+      - safebus-network
+
+  # ======================================================
+  # 5. Spring Cloud API Gateway
+  # ======================================================
+  api-gateway:
+    build:
+      context: ./backend-springboot
+      dockerfile: api-gateway/Dockerfile
+    container_name: safebus-api-gateway
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888
+      - SPRING_PROFILES_ACTIVE=prod
+    depends_on:
+      - eureka-server
+      - config-server
+    networks:
+      - safebus-network
+
+  # ======================================================
+  # 6. Auth Service
+  # ======================================================
+  auth-service:
+    build:
+      context: ./backend-springboot
+      dockerfile: auth-service/Dockerfile
+    container_name: safebus-auth-service
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888
+      - SPRING_PROFILES_ACTIVE=prod
+    depends_on:
+      - safebus-mysql
+      - eureka-server
+      - config-server
+    networks:
+      - safebus-network
+
+  # ======================================================
+  # 7. Student Service
+  # ======================================================
+  student-service:
+    build:
+      context: ./backend-springboot
+      dockerfile: student-service/Dockerfile
+    container_name: safebus-student-service
+    restart: unless-stopped
+    ports:
+      - "8082:8082"
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888
+      - SPRING_PROFILES_ACTIVE=prod
+    depends_on:
+      - safebus-mysql
+      - eureka-server
+      - config-server
+    networks:
+      - safebus-network
+
+  # ======================================================
+  # 8. Transport Service
+  # ======================================================
+  transport-service:
+    build:
+      context: ./backend-springboot
+      dockerfile: transport-service/Dockerfile
+    container_name: safebus-transport-service
+    restart: unless-stopped
+    ports:
+      - "8083:8083"
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888
+      - SPRING_PROFILES_ACTIVE=prod
+    depends_on:
+      - safebus-mysql
+      - eureka-server
+      - config-server
+    networks:
+      - safebus-network
+
+  # ======================================================
+  # 9. Attendance Service
+  # ======================================================
+  attendance-service:
+    build:
+      context: ./backend-springboot
+      dockerfile: attendance-service/Dockerfile
+    container_name: safebus-attendance-service
+    restart: unless-stopped
+    ports:
+      - "8084:8084"
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888
+      - SPRING_PROFILES_ACTIVE=prod
+    depends_on:
+      - safebus-mysql
+      - safebus-rabbitmq
+      - eureka-server
+      - config-server
+    networks:
+      - safebus-network
+
+  # ======================================================
+  # 10. Notification Service
+  # ======================================================
+  notification-service:
+    build:
+      context: ./backend-springboot
+      dockerfile: notification-service/Dockerfile
+    container_name: safebus-notification-service
+    restart: unless-stopped
+    ports:
+      - "8086:8086"
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888
+      - SPRING_PROFILES_ACTIVE=prod
+    depends_on:
+      - safebus-rabbitmq
+      - eureka-server
+      - config-server
+    networks:
+      - safebus-network
+
+  # ======================================================
+  # 11. Python Edge AI Computer Vision Monitor
+  # ======================================================
+  cv-monitor:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: safebus-cv-monitor
+    restart: unless-stopped
+    ports:
+      - "5001:5001"
+    environment:
+      - PYTHONUNBUFFERED=1
+    networks:
+      - safebus-network
+
+  # ======================================================
+  # 12. Frontend Single Page Web App
+  # ======================================================
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: safebus-frontend
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    depends_on:
+      - api-gateway
+    networks:
+      - safebus-network
+
+networks:
+  safebus-network:
+    driver: bridge
+
+volumes:
+  safebus_mysql_data:
+  safebus_rabbitmq_data:
