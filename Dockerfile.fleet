@@ -4,10 +4,14 @@ WORKDIR /build
 
 COPY backend-springboot/pom.xml .
 COPY backend-springboot/safebus-common ./safebus-common
+COPY backend-springboot/eureka-server ./eureka-server
+COPY backend-springboot/config-server ./config-server
+COPY backend-springboot/api-gateway ./api-gateway
+COPY backend-springboot/auth-service ./auth-service
+COPY backend-springboot/student-service ./student-service
 COPY backend-springboot/transport-service ./transport-service
 COPY backend-springboot/attendance-service ./attendance-service
 COPY backend-springboot/notification-service ./notification-service
-COPY backend-springboot/config-server ./config-server
 
 RUN mvn clean package -pl safebus-common,transport-service,attendance-service,notification-service,config-server -am -T 1C -DskipTests
 
