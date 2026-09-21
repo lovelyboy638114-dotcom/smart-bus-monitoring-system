@@ -36,27 +36,27 @@ spring:
           predicates:
             - Path=/api/v1/students/**, /api/v1/student/**, /api/v1/storage/**, /api/v1/sos/**, /api/v1/analytics/**, /api/v1/admin/**, /uploads/**
         
-        # Transport Service Route (routes to dedicated fleet container via Railway private network)
+        # Transport Service Route
         - id: transport-service
-          uri: ${TRANSPORT_SERVICE_URI:http://safebus-fleet.railway.internal:8083}
+          uri: ${TRANSPORT_SERVICE_URI:http://127.0.0.1:8083}
           predicates:
             - Path=/api/v1/buses/**, /api/v1/routes/**, /api/v1/telemetry/**, /api/v1/assignments/**, /api/v1/driver/**
         
         # Attendance Service Route
         - id: attendance-service
-          uri: ${ATTENDANCE_SERVICE_URI:http://safebus-fleet.railway.internal:8084}
+          uri: ${ATTENDANCE_SERVICE_URI:http://127.0.0.1:8084}
           predicates:
             - Path=/api/v1/attendance/**
 
         # Notification Service Route
         - id: notification-service
-          uri: ${NOTIFICATION_SERVICE_URI:http://safebus-fleet.railway.internal:8086}
+          uri: ${NOTIFICATION_SERVICE_URI:http://127.0.0.1:8086}
           predicates:
             - Path=/api/v1/notifications/**
 
         # Python Edge AI Computer Vision Route
         - id: cv-service
-          uri: ${CV_SERVICE_URI:http://safebus-fleet.railway.internal:5001}
+          uri: ${CV_SERVICE_URI:http://127.0.0.1:5001}
           predicates:
             - Path=/cv/**
           filters:
@@ -64,7 +64,7 @@ spring:
 
         # WebSocket Route
         - id: websocket-route
-          uri: ${WS_SERVICE_URI:ws://safebus-fleet.railway.internal:8086}
+          uri: ${WS_SERVICE_URI:ws://127.0.0.1:8086}
           predicates:
             - Path=/ws/**
 
