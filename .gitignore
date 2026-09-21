@@ -55,7 +55,8 @@ logs/
 # =========================
 # Generated files
 # =========================
-uploads/
+uploads/temp/
+uploads/idcards/archive/
 *.tmp
 
 # =========================

@@ -22,7 +22,7 @@ public class DriverIncidentService {
     private final DriverIncidentRepository incidentRepository;
     private final ApplicationEventPublisher eventPublisher;
 
-    @Value("${storage.location:C:/SafeBus/uploads}")
+    @Value("${storage.location:${STORAGE_LOCATION:/app/uploads}}")
     private String storageLocation;
 
     public DriverIncidentService(DriverIncidentRepository incidentRepository, ApplicationEventPublisher eventPublisher) {

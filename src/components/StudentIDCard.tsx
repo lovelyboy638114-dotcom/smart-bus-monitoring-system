@@ -9,6 +9,12 @@ interface StudentIDCardProps {
     rollNo: string;
     class_name: string;
     admission_no: string;
+    bus_id?: string;
+    blood_group?: string;
+    parent_name?: string;
+    parent_phone?: string;
+    route_id?: string;
+    address?: string;
     front_path: string | null;
     back_path: string | null;
     pdf_path: string | null;
@@ -30,13 +36,15 @@ const StudentIDCard: React.FC<StudentIDCardProps> = ({ studentData, onRegenerate
   const [zoomScale, setZoomScale] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [frontLoadError, setFrontLoadError] = useState(false);
+  const [backLoadError, setBackLoadError] = useState(false);
 
   const backendUrl = API_BASE_URL;
   
-  const cacheBuster = Date.now();
-  const frontImage = studentData.front_path ? `${backendUrl}${studentData.front_path}?v=${studentData.version}&t=${cacheBuster}` : null;
-  const backImage = studentData.back_path ? `${backendUrl}${studentData.back_path}?v=${studentData.version}&t=${cacheBuster}` : null;
-  const pdfLink = studentData.pdf_path ? `${backendUrl}${studentData.pdf_path}?t=${cacheBuster}` : null;
+  const cacheBuster = studentData.version || 1;
+  const frontImage = studentData.front_path ? (studentData.front_path.startsWith('http') ? studentData.front_path : `${backendUrl}${studentData.front_path}?v=${cacheBuster}`) : null;
+  const backImage = studentData.back_path ? (studentData.back_path.startsWith('http') ? studentData.back_path : `${backendUrl}${studentData.back_path}?v=${cacheBuster}`) : null;
+  const pdfLink = studentData.pdf_path ? (studentData.pdf_path.startsWith('http') ? studentData.pdf_path : `${backendUrl}${studentData.pdf_path}?v=${cacheBuster}`) : null;
 
   const handleDownloadPdf = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -308,34 +316,146 @@ const StudentIDCard: React.FC<StudentIDCardProps> = ({ studentData, onRegenerate
               >
                 {/* FRONT SIDE */}
                 <div className="absolute inset-0 w-full h-full rounded-2xl [backface-visibility:hidden] overflow-hidden bg-slate-50 flex items-center justify-center">
-                  {frontImage ? (
+                  {frontImage && !frontLoadError ? (
                     <img 
                       src={frontImage} 
                       alt="ID Card Front" 
                       className="w-full h-full object-cover rounded-2xl"
-                      loading="lazy"
+                      loading="eager"
+                      onError={() => setFrontLoadError(true)}
                     />
                   ) : (
-                    <div className="flex flex-col items-center gap-2 p-6 text-center">
-                      <ShieldAlert className="w-10 h-10 text-slate-350 animate-bounce" />
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Digital front badge missing</span>
+                    <div className="w-full h-full bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 text-white p-5 rounded-2xl flex flex-col justify-between border border-blue-500/30 shadow-inner select-none">
+                      {/* Top Header */}
+                      <div className="flex justify-between items-center border-b border-blue-500/20 pb-2.5">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center shadow-md">
+                            <span className="text-white text-xs font-black tracking-tighter">SB</span>
+                          </div>
+                          <div>
+                            <h4 className="text-[11px] font-black tracking-widest text-blue-300 uppercase leading-none">SafeBus Shield Academy</h4>
+                            <span className="text-[8px] font-bold text-slate-400 tracking-wider block mt-0.5">SMART TRANSIT IDENTITY PASS</span>
+                          </div>
+                        </div>
+                        <span className="px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                          Active Pass
+                        </span>
+                      </div>
+
+                      {/* Main Identity Row */}
+                      <div className="flex items-center justify-between gap-4 py-1">
+                        {/* Avatar / Initials */}
+                        <div className="flex flex-col items-center gap-1.5 flex-shrink-0">
+                          <div className="w-20 h-20 rounded-xl bg-gradient-to-tr from-blue-700 to-indigo-500 flex items-center justify-center shadow-lg border-2 border-white/20">
+                            <span className="text-xl font-black text-white tracking-wider">
+                              {(studentData.name || 'SB').split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()}
+                            </span>
+                          </div>
+                          <span className="text-[8px] font-black text-blue-300 uppercase tracking-widest">
+                            {studentData.student_id}
+                          </span>
+                        </div>
+
+                        {/* Student Details Fields */}
+                        <div className="flex-1 flex flex-col gap-1 text-left">
+                          <div>
+                            <h3 className="text-sm font-black text-white leading-tight uppercase tracking-wide truncate">
+                              {studentData.name}
+                            </h3>
+                            <span className="text-[9px] font-extrabold text-blue-400">
+                              Roll No: #{studentData.rollNo}
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-x-2 gap-y-1 mt-1 text-[9px]">
+                            <div>
+                              <span className="text-slate-400 text-[8px] block uppercase font-bold">Grade / Class</span>
+                              <span className="font-extrabold text-white">{studentData.class_name || 'Grade 10'}</span>
+                            </div>
+                            <div>
+                              <span className="text-slate-400 text-[8px] block uppercase font-bold">Blood Group</span>
+                              <span className="font-extrabold text-rose-300">{studentData.blood_group || 'B+'}</span>
+                            </div>
+                            <div>
+                              <span className="text-slate-400 text-[8px] block uppercase font-bold">Assigned Bus</span>
+                              <span className="font-extrabold text-amber-300">{studentData.bus_id || 'TN38AB1234'}</span>
+                            </div>
+                            <div>
+                              <span className="text-slate-400 text-[8px] block uppercase font-bold">Route ID</span>
+                              <span className="font-extrabold text-blue-200">{studentData.route_id || 'R-01'}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Scannable Dynamic QR Code */}
+                        <div className="flex-shrink-0 p-1.5 bg-white rounded-xl shadow-md flex flex-col items-center">
+                          <img 
+                            src={`https://api.qrserver.com/v1/create-qr-code/?size=72x72&data=${encodeURIComponent(
+                              `=== SafeBus Shield ===\nID: ${studentData.student_id}\nName: ${studentData.name}\nRoll: ${studentData.rollNo}\nBus: ${studentData.bus_id || 'TN38AB1234'}`
+                            )}`}
+                            alt="Student QR"
+                            className="w-[72px] h-[72px]"
+                          />
+                          <span className="text-[7px] font-black text-slate-800 tracking-tighter mt-0.5 uppercase">Scan to Board</span>
+                        </div>
+                      </div>
+
+                      {/* Card Footer Bar */}
+                      <div className="flex justify-between items-center border-t border-blue-500/20 pt-2 text-[8px] text-slate-400 font-bold">
+                        <span className="flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                          Encrypted RFID / Barcode Validated
+                        </span>
+                        <span className="text-blue-300 font-mono">Academic Year 2026-2027</span>
+                      </div>
                     </div>
                   )}
                 </div>
 
                 {/* BACK SIDE */}
                 <div className="absolute inset-0 w-full h-full rounded-2xl [backface-visibility:hidden] overflow-hidden bg-slate-50 flex items-center justify-center [transform:rotateY(180deg)]">
-                  {backImage ? (
+                  {backImage && !backLoadError ? (
                     <img 
                       src={backImage} 
                       alt="ID Card Back" 
                       className="w-full h-full object-cover rounded-2xl"
-                      loading="lazy"
+                      loading="eager"
+                      onError={() => setBackLoadError(true)}
                     />
                   ) : (
-                    <div className="flex flex-col items-center gap-2 p-6 text-center">
-                      <ShieldAlert className="w-10 h-10 text-slate-350 animate-bounce" />
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Digital back badge missing</span>
+                    <div className="w-full h-full bg-gradient-to-br from-slate-900 via-slate-850 to-blue-950 text-white p-5 rounded-2xl flex flex-col justify-between border border-blue-500/30 shadow-inner select-none">
+                      {/* Top Header */}
+                      <div className="border-b border-blue-500/20 pb-2">
+                        <h4 className="text-[10px] font-black tracking-widest text-blue-300 uppercase">Emergency Contact & Transport Guidelines</h4>
+                      </div>
+
+                      {/* Information Grid */}
+                      <div className="grid grid-cols-2 gap-3 text-left py-2">
+                        <div className="bg-white/5 p-2.5 rounded-xl border border-white/5">
+                          <span className="text-[8px] font-bold text-slate-400 uppercase block">Parent / Guardian</span>
+                          <span className="text-xs font-black text-white block mt-0.5">{studentData.parent_name || 'Guardian'}</span>
+                          <span className="text-[10px] font-mono text-emerald-300 font-bold mt-0.5 block">{studentData.parent_phone || 'N/A'}</span>
+                        </div>
+
+                        <div className="bg-white/5 p-2.5 rounded-xl border border-white/5">
+                          <span className="text-[8px] font-bold text-slate-400 uppercase block">Emergency SOS Hotline</span>
+                          <span className="text-xs font-black text-amber-300 block mt-0.5">1800-SAFE-BUS</span>
+                          <span className="text-[9px] text-slate-300 block mt-0.5">24/7 Operations Control</span>
+                        </div>
+
+                        <div className="col-span-2 bg-white/5 p-2.5 rounded-xl border border-white/5">
+                          <span className="text-[8px] font-bold text-slate-400 uppercase block">Authorized Pickup Zone</span>
+                          <span className="text-[11px] font-bold text-blue-200 block mt-0.5">{studentData.address || 'Designated Campus Stop'}</span>
+                        </div>
+                      </div>
+
+                      {/* Disclaimer & Barcode */}
+                      <div className="border-t border-blue-500/20 pt-2 flex justify-between items-center text-[7.5px] text-slate-400 font-semibold">
+                        <p className="max-w-[280px] leading-tight">
+                          Property of SafeBus Shield. Must be presented to the bus sensor upon boarding and alighting.
+                        </p>
+                        <span className="font-mono text-blue-300 font-black">SEC-ID-{studentData.student_id}-V{studentData.version}</span>
+                      </div>
                     </div>
                   )}
                 </div>

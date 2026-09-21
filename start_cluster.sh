@@ -25,6 +25,8 @@ export SPRING_RABBITMQ_PORT=${SPRING_RABBITMQ_PORT:-5672}
 export SPRING_RABBITMQ_USERNAME=${SPRING_RABBITMQ_USERNAME:-"guest"}
 export SPRING_RABBITMQ_PASSWORD=${SPRING_RABBITMQ_PASSWORD:-"guest"}
 export EUREKA_SERVER_URL=${EUREKA_SERVER_URL:-"http://127.0.0.1:8761/eureka/"}
+export STORAGE_LOCATION=${STORAGE_LOCATION:-"/app/uploads"}
+mkdir -p /app/uploads/idcards/front /app/uploads/idcards/back /app/uploads/idcards/pdf /app/uploads/qr /app/uploads/temp
 
 # Ensure log files exist
 touch /tmp/cv.log /tmp/auth.log /tmp/student.log /tmp/transport.log /tmp/gateway.log

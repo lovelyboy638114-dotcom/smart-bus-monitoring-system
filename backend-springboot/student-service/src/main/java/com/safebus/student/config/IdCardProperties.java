@@ -8,7 +8,9 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 @ConfigurationProperties(prefix = "idcard")
 public class IdCardProperties {
-    private String storageLocation = "C:/SafeBus/uploads";
+    private String storageLocation = System.getenv("STORAGE_LOCATION") != null 
+            ? System.getenv("STORAGE_LOCATION") 
+            : (new java.io.File("/app/uploads").exists() ? "/app/uploads" : "C:/SafeBus/uploads");
     private int maxVersions = 5;
     private Archive archive = new Archive();
     private Retry retry = new Retry();

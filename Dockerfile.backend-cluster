@@ -51,6 +51,10 @@ COPY --from=build /build/attendance-service/target/safebus-attendance-service-1.
 COPY --from=build /build/notification-service/target/safebus-notification-service-1.0.0.jar ./notification-service.jar
 COPY --from=build /build/config-server/src/main/resources/config ./config
 
+# Copy persistent and generated assets (ID cards, QR codes, student images)
+COPY uploads/ /app/uploads/
+RUN mkdir -p /app/uploads/idcards/front /app/uploads/idcards/back /app/uploads/idcards/pdf /app/uploads/qr /app/uploads/temp && chmod -R 777 /app/uploads
+
 # Copy cluster startup script
 COPY start_cluster.sh ./start_cluster.sh
 RUN tr -d '\r' < ./start_cluster.sh > ./start_cluster_unix.sh && mv ./start_cluster_unix.sh ./start_cluster.sh && chmod +x ./start_cluster.sh

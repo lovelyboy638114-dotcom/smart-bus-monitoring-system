@@ -61,6 +61,12 @@ springdoc:
 cv:
   confidence-threshold: 0.80
 
+storage:
+  location: ${STORAGE_LOCATION:/app/uploads}
+
+idcard:
+  storage-location: ${STORAGE_LOCATION:/app/uploads}
+
 ---
 spring:
   config:
