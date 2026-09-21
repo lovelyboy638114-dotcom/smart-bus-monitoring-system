@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: ${PORT:8080}
 
 spring:
   cloud:
@@ -7,7 +7,7 @@ spring:
       globalcors:
         cors-configurations:
           '[/**]':
-            allowedOrigins: "*"
+            allowedOrigins: "${CORS_ALLOWED_ORIGINS:*}"
             allowedMethods:
               - GET
               - POST
@@ -46,11 +46,20 @@ spring:
           predicates:
             - Path=/api/v1/notifications/**
 
+        # Python Edge AI Computer Vision Route
+        - id: cv-service
+          uri: ${CV_SERVICE_URI:http://localhost:5001}
+          predicates:
+            - Path=/cv/**
+          filters:
+            - StripPrefix=1
+
         # WebSocket Route
         - id: websocket-route
           uri: lb:ws://notification-service
           predicates:
             - Path=/ws/**
+
 
         # OpenAPI Doc routes mapping
         - id: auth-openapi

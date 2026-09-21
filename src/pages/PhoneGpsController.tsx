@@ -185,9 +185,7 @@ export const PhoneGpsController: React.FC = () => {
   }, [activeBusRoute]);
 
   // Backend Target URL
-  const defaultBackend = typeof window !== 'undefined' && window.location.hostname && window.location.hostname !== 'localhost'
-    ? `http://${window.location.hostname}:8080`
-    : API_BASE_URL;
+  const defaultBackend = API_BASE_URL;
   const [backendUrl, setBackendUrl] = useState<string>(defaultBackend);
 
   // Current bus coordinates & speed

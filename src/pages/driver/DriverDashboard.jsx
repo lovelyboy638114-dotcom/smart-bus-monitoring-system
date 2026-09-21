@@ -3,6 +3,7 @@ import { useApp } from '../../context/AppContext';
 import { Compass, Users, MapPin, Play, Square, AlertOctagon, PhoneCall, ShieldAlert, AlertTriangle, Check, BellRing, Volume2, RefreshCw } from 'lucide-react';
 import { playAlertBuzzer, unlockAudio } from '../../utils/buzzer';
 import { acquireSharedWebcam, releaseSharedWebcam } from '../../utils/webcamStream';
+import { CV_SERVICE_URL } from '../../config';
 
 const DriverDashboard = () => {
   const { 
@@ -161,7 +162,7 @@ const DriverDashboard = () => {
         const frameB64 = canvas.toDataURL('image/jpeg', 0.75);
 
         const startTime = Date.now();
-        const response = await fetch('http://localhost:5001/process_frame', {
+        const response = await fetch(`${CV_SERVICE_URL}/process_frame`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

@@ -59,7 +59,7 @@ args, unknown = parser.parse_known_args()
 bus_id = args.bus
 
 # Spring Boot API Gateway target endpoints
-BACKEND_BASE = "http://localhost:8080/api/v1/driver"
+BACKEND_BASE = os.environ.get("BACKEND_BASE", "http://localhost:8080/api/v1/driver")
 INCIDENTS_API = f"{BACKEND_BASE}/incidents"
 BEHAVIOR_API = f"{BACKEND_BASE}/behavior"
 
@@ -686,9 +686,10 @@ class FrameProcessorHandler(BaseHTTPRequestHandler):
 
 
 def run_http_server():
-    server_address = ('', 5001)
+    port = int(os.environ.get('PORT', 5001))
+    server_address = ('', port)
     httpd = ThreadingHTTPServer(server_address, FrameProcessorHandler)
-    print("\n[SafeBus AI] Multi-Camera CV HTTP Service listening on port 5001 (High-Precision Eye & Face Tracker Ready)...")
+    print(f"\n[SafeBus AI] Multi-Camera CV HTTP Service listening on port {port} (High-Precision Eye & Face Tracker Ready)...")
     httpd.serve_forever()
 
 

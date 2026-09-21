@@ -12,3 +12,9 @@ const getBackendBaseUrl = () => {
 
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || getBackendBaseUrl();
 
+// Python Edge AI Computer Vision service URL (proxied via Gateway /cv or dedicated service)
+export const CV_SERVICE_URL = import.meta.env.VITE_CV_URL || (import.meta.env.VITE_API_BASE_URL ? `${import.meta.env.VITE_API_BASE_URL}/cv` : 'http://localhost:5001');
+
+// WebSocket base URL
+export const WS_BASE_URL = import.meta.env.VITE_WS_URL || (API_BASE_URL.startsWith('http') ? API_BASE_URL.replace(/^http/, 'ws') + '/ws' : (typeof window !== 'undefined' ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws` : 'ws://localhost:8080/ws'));
+

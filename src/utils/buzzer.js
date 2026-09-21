@@ -12,6 +12,7 @@
  *  - Strictly 3.0 seconds duration, non-looping.
  *  - Dispatches custom 'safebus-buzzer-state' window event so UI can display live visual indicators.
  */
+import { CV_SERVICE_URL } from '../config';
 
 let activeAudioContext = null;
 let buzzerActive = false;
@@ -97,7 +98,7 @@ export const playAlertBuzzer = (durationSeconds = 3.0) => {
 
   // Channel 1: Host Laptop Physical Speakers via Python Windows MultiMedia (winsound)
   try {
-    fetch('http://localhost:5001/trigger_buzzer', {
+    fetch(`${CV_SERVICE_URL}/trigger_buzzer`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' }
     }).catch(() => {});

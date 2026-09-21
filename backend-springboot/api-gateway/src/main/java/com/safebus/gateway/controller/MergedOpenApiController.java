@@ -26,11 +26,11 @@ public class MergedOpenApiController {
 
     private static final Map<String, String> SERVICE_URLS = new LinkedHashMap<>();
     static {
-        SERVICE_URLS.put("Auth Service", "http://localhost:8081/v3/api-docs");
-        SERVICE_URLS.put("Student Service", "http://localhost:8082/v3/api-docs");
-        SERVICE_URLS.put("Transport Service", "http://localhost:8083/v3/api-docs");
-        SERVICE_URLS.put("Attendance Service", "http://localhost:8084/v3/api-docs");
-        SERVICE_URLS.put("Notification Service", "http://localhost:8086/v3/api-docs");
+        SERVICE_URLS.put("Auth Service", System.getenv().getOrDefault("AUTH_SERVICE_URL", "http://localhost:8081") + "/v3/api-docs");
+        SERVICE_URLS.put("Student Service", System.getenv().getOrDefault("STUDENT_SERVICE_URL", "http://localhost:8082") + "/v3/api-docs");
+        SERVICE_URLS.put("Transport Service", System.getenv().getOrDefault("TRANSPORT_SERVICE_URL", "http://localhost:8083") + "/v3/api-docs");
+        SERVICE_URLS.put("Attendance Service", System.getenv().getOrDefault("ATTENDANCE_SERVICE_URL", "http://localhost:8084") + "/v3/api-docs");
+        SERVICE_URLS.put("Notification Service", System.getenv().getOrDefault("NOTIFICATION_SERVICE_URL", "http://localhost:8086") + "/v3/api-docs");
     }
 
     @GetMapping(value = {"/swagger", "/docs", "/api-docs"})
@@ -55,8 +55,9 @@ public class MergedOpenApiController {
         info.put("version", "1.0.0");
         merged.put("info", info);
 
-        List<Map<String, String>> servers = new ArrayList<>();
-        servers.add(Map.of("url", "http://localhost:8080", "description", "SafeBus AI API Gateway (Unified Host)"));
+        String gatewayHost = System.getenv().getOrDefault("GATEWAY_PUBLIC_URL", "/");
+        List<Map<String, Object>> servers = new ArrayList<>();
+        servers.add(Map.of("url", gatewayHost, "description", "SafeBus AI API Gateway (Unified Host)"));
         merged.put("servers", servers);
 
         Map<String, Object> allPaths = new LinkedHashMap<>();

@@ -1,20 +1,13 @@
 server:
-  port: 8082
-
-spring:
-  rabbitmq:
-    host: localhost
-    port: 5672
-    username: guest
-    password: guest
+  port: ${PORT:8082}
 
 jwt:
-  secret: 9a62a983b772c8427f711200427b58a18df7b51b3d5b0d099903e1b7b75249f7
+  secret: ${JWT_SECRET:9a62a983b772c8427f711200427b58a18df7b51b3d5b0d099903e1b7b75249f7}
   expiration: 900000        # 15 minutes (in milliseconds)
   refresh-expiration: 604800000 # 7 days (in milliseconds)
 
 idcard:
-  storage-location: C:/SafeBus/uploads
+  storage-location: ${STORAGE_LOCATION:${IDCARD_STORAGE_LOCATION:./uploads}}
   max-versions: 5
   archive-retention-days: 365
   retry:

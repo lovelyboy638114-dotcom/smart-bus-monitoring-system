@@ -3,6 +3,7 @@ import { Eye, ShieldAlert, Award, Volume2, UserCheck, AlertTriangle, Video, Vide
 import { useApp } from '../context/AppContext';
 import { playAlertBuzzer, unlockAudio } from '../utils/buzzer';
 import { acquireSharedWebcam, releaseSharedWebcam } from '../utils/webcamStream';
+import { CV_SERVICE_URL } from '../config';
 
 const CameraMock = ({ 
   busId = "TN38AB1234", 
@@ -144,7 +145,7 @@ const CameraMock = ({
         ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
         const frameB64 = canvas.toDataURL('image/jpeg', 0.70);
 
-        const res = await fetch('http://localhost:5001/process_frame', {
+        const res = await fetch(`${CV_SERVICE_URL}/process_frame`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
