@@ -15,7 +15,7 @@ GATEWAY_PORT=${PORT:-8080}
 unset PORT
 
 # High-efficiency, low-memory JVM parameters for cloud microservices (tuned for 1024MB container)
-COMMON_JVM_OPTS="-XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:CICompilerCount=2 -Xss256k -XX:ReservedCodeCacheSize=12m -XX:MinHeapFreeRatio=5 -XX:MaxHeapFreeRatio=15 -XX:MetaspaceSize=24m -XX:MaxMetaspaceSize=85m -Dspringdoc.api-docs.enabled=false -Dspringdoc.swagger-ui.enabled=false -Dspring.jpa.hibernate.ddl-auto=none -Dserver.tomcat.threads.max=4 -Dserver.tomcat.threads.min-spare=1 -Dreactor.netty.ioWorkerCount=2 -Djava.net.preferIPv4Stack=true"
+COMMON_JVM_OPTS="-XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:CICompilerCount=2 -Xss256k -XX:ReservedCodeCacheSize=12m -XX:MinHeapFreeRatio=5 -XX:MaxHeapFreeRatio=15 -Dspringdoc.api-docs.enabled=false -Dspringdoc.swagger-ui.enabled=false -Dspring.jpa.hibernate.ddl-auto=none -Dserver.tomcat.threads.max=4 -Dserver.tomcat.threads.min-spare=1 -Dreactor.netty.ioWorkerCount=2 -Djava.net.preferIPv4Stack=true"
 
 # Cloud infrastructure environment variables
 export SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL:-"jdbc:mysql://mysql.railway.internal:3306/railway?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true"}
@@ -76,7 +76,7 @@ CONFIG_FLAGS="--spring.cloud.config.enabled=false --spring.config.import=file:/a
 
 # 4. Start Core Domain Microservices sequentially to prevent CPU/memory spikes
 echo "[4/8] Starting Auth Service on port 8081..."
-java -Xms16m -Xmx64m $COMMON_JVM_OPTS -Dserver.port=8081 -jar auth-service.jar $CONFIG_FLAGS,file:/app/config/auth-service.yml > /tmp/auth.log 2>&1 &
+java -Xms16m -Xmx80m $COMMON_JVM_OPTS -Dserver.port=8081 -jar auth-service.jar $CONFIG_FLAGS,file:/app/config/auth-service.yml > /tmp/auth.log 2>&1 &
 wait_for_port 8081 "Auth Service" $! 30
 
 echo "[5/8] Starting Student Service on port 8082..."
