@@ -2,20 +2,18 @@
 set -e
 
 echo "=========================================================="
-echo "  SafeBus Shield Enterprise Cloud Backend Cluster"
-echo "  Initializing 8 Microservices + Python AI CV Node..."
+echo "  SafeBus Shield Enterprise Cloud Gateway & Identity Node"
+echo "  Starting API Gateway, Auth Service, & Student Service"
 echo "=========================================================="
 
-# Limit glibc memory arena fragmentation (critical for multi-JVM containers)
 export MALLOC_ARENA_MAX=2
-export MALLOC_TRIM_THRESHOLD_=65536
 
-# Save public container port for API Gateway entrypoint and isolate sub-services
+# Save public container port for API Gateway entrypoint
 GATEWAY_PORT=${PORT:-8080}
 unset PORT
 
-# High-efficiency, low-memory JVM parameters for cloud microservices (tuned for 1024MB container)
-COMMON_JVM_OPTS="-XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:CICompilerCount=1 -Xss228k -XX:ReservedCodeCacheSize=8m -XX:MinHeapFreeRatio=5 -XX:MaxHeapFreeRatio=15 -XX:+UseCompressedOops -XX:+UseCompressedClassPointers -Deureka.client.enabled=false -Dspringdoc.api-docs.enabled=false -Dspringdoc.swagger-ui.enabled=false -Dspring.jpa.hibernate.ddl-auto=none -Dserver.tomcat.threads.max=2 -Dserver.tomcat.threads.min-spare=1 -Dreactor.netty.ioWorkerCount=2 -Djava.net.preferIPv4Stack=true"
+# High-efficiency, generous JVM parameters (plenty of room in 1024MB container)
+COMMON_JVM_OPTS="-XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:CICompilerCount=2 -Xss256k -XX:MinHeapFreeRatio=10 -XX:MaxHeapFreeRatio=30 -XX:+UseCompressedOops -XX:+UseCompressedClassPointers -Deureka.client.enabled=false -Dspringdoc.api-docs.enabled=false -Dspringdoc.swagger-ui.enabled=false -Dspring.jpa.hibernate.ddl-auto=none -Dserver.tomcat.threads.max=4 -Dserver.tomcat.threads.min-spare=2 -Dreactor.netty.ioWorkerCount=2 -Djava.net.preferIPv4Stack=true"
 
 # Cloud infrastructure environment variables
 export SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL:-"jdbc:mysql://mysql.railway.internal:3306/railway?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true"}
@@ -25,28 +23,17 @@ export SPRING_RABBITMQ_HOST=${SPRING_RABBITMQ_HOST:-"rabbitmq.railway.internal"}
 export SPRING_RABBITMQ_PORT=${SPRING_RABBITMQ_PORT:-5672}
 export SPRING_RABBITMQ_USERNAME=${SPRING_RABBITMQ_USERNAME:-"guest"}
 export SPRING_RABBITMQ_PASSWORD=${SPRING_RABBITMQ_PASSWORD:-"guest"}
-export EUREKA_SERVER_URL=${EUREKA_SERVER_URL:-"http://127.0.0.1:8761/eureka/"}
 
-# Ensure log files exist so tail can attach
-touch /tmp/cv.log /tmp/auth.log /tmp/student.log /tmp/transport.log /tmp/attendance.log /tmp/notification.log /tmp/gateway.log
-
-# Stream background service logs so Railway captures all process logs
+touch /tmp/auth.log /tmp/student.log /tmp/gateway.log
 tail -q -n 0 -F /tmp/*.log &
 
-# Helper function to wait for a service port to respond and trim memory
 wait_for_port() {
   local port=$1
   local name=$2
-  local pid=$3
-  local max_sec=${4:-35}
+  local max_sec=${3:-40}
   for i in $(seq 1 $max_sec); do
     if curl -s "http://127.0.0.1:${port}/actuator/health" > /dev/null 2>&1 || curl -s "http://127.0.0.1:${port}" > /dev/null 2>&1 || curl -s "http://127.0.0.1:${port}/health" > /dev/null 2>&1; then
       echo "  -> ${name} is ready on port ${port} (${i}s)."
-      if [ -n "$pid" ]; then
-        jcmd "$pid" GC.run > /dev/null 2>&1 || true
-        jcmd "$pid" System.trim_native_memory > /dev/null 2>&1 || true
-      fi
-      sleep 1
       return 0
     fi
     sleep 1
@@ -54,101 +41,48 @@ wait_for_port() {
   echo "  -> [Notice] ${name} on port ${port} still starting..."
 }
 
-# 1. Intra-cluster direct routing (Saves 106MB JVM RAM by omitting redundant Eureka Discovery server)
-echo "[1/7] Intra-cluster direct routing active (127.0.0.1 loopback)..."
-
-# 2. Start Lightweight Config Provider on port 8888 (Serves /app/config directly, saves 140MB JVM)
-echo "[2/7] Initializing Cloud Configuration provider on port 8888..."
+echo "[1/3] Starting Configuration provider on port 8888..."
 cd /app/config
 python3 -m http.server 8888 > /dev/null 2>&1 &
 cd /app
 sleep 1
 
-# 3. Start Python Edge AI CV Driver Monitor (Port 5001 - Lazy Loaded, uses only ~15MB idle)
-echo "[3/7] Starting Python AI CV Driver Monitor on port 5001..."
-cd /app/backend
-CV_PORT=5001 python3 cv_driver_monitor.py > /tmp/cv.log 2>&1 &
-CV_PID=$!
-cd /app
-sleep 1
-
-# Common config import flag for domain microservices
 CONFIG_FLAGS="--spring.cloud.config.enabled=false --spring.config.import=file:/app/config/application.yml"
 
-# 4. Start Core Domain Microservices sequentially with memory compaction
-echo "[4/7] Starting Auth Service on port 8081..."
-java -Xms8m -Xmx48m $COMMON_JVM_OPTS -Dserver.port=8081 -jar auth-service.jar $CONFIG_FLAGS,file:/app/config/auth-service.yml > /tmp/auth.log 2>&1 &
+echo "[2/3] Starting Auth Service on port 8081..."
+java -Xms32m -Xmx128m $COMMON_JVM_OPTS -Dserver.port=8081 -jar auth-service.jar $CONFIG_FLAGS,file:/app/config/auth-service.yml > /tmp/auth.log 2>&1 &
 AUTH_PID=$!
-wait_for_port 8081 "Auth Service" $AUTH_PID 35
+wait_for_port 8081 "Auth Service" 40
 
-echo "[5/7] Starting Student Service on port 8082..."
-java -Xms8m -Xmx44m $COMMON_JVM_OPTS -Dserver.port=8082 -jar student-service.jar $CONFIG_FLAGS,file:/app/config/student-service.yml > /tmp/student.log 2>&1 &
+echo "[3/3] Starting Student Service on port 8082..."
+java -Xms32m -Xmx128m $COMMON_JVM_OPTS -Dserver.port=8082 -jar student-service.jar $CONFIG_FLAGS,file:/app/config/student-service.yml > /tmp/student.log 2>&1 &
 STUDENT_PID=$!
-wait_for_port 8082 "Student Service" $STUDENT_PID 35
+wait_for_port 8082 "Student Service" 40
 
-echo "[6/7] Starting Transport Service on port 8083..."
-java -Xms8m -Xmx40m $COMMON_JVM_OPTS -Dserver.port=8083 -jar transport-service.jar $CONFIG_FLAGS,file:/app/config/transport-service.yml > /tmp/transport.log 2>&1 &
-TRANSPORT_PID=$!
-wait_for_port 8083 "Transport Service" $TRANSPORT_PID 35
-
-echo "[7/7] Starting Attendance Service on port 8084..."
-java -Xms8m -Xmx32m $COMMON_JVM_OPTS -Dserver.port=8084 -jar attendance-service.jar $CONFIG_FLAGS,file:/app/config/attendance-service.yml > /tmp/attendance.log 2>&1 &
-ATTENDANCE_PID=$!
-wait_for_port 8084 "Attendance Service" $ATTENDANCE_PID 35
-
-echo "[Bonus] Starting Notification Service on port 8086..."
-java -Xms8m -Xmx32m $COMMON_JVM_OPTS -Dserver.port=8086 -jar notification-service.jar $CONFIG_FLAGS,file:/app/config/notification-service.yml > /tmp/notification.log 2>&1 &
-NOTIFICATION_PID=$!
-wait_for_port 8086 "Notification Service" $NOTIFICATION_PID 35
-
-# 5. Start API Gateway on main exposed PORT in background with supervisor
 echo "=== Starting Spring Cloud API Gateway on port ${GATEWAY_PORT} (Public Entrypoint) ==="
-java -Xms8m -Xmx36m $COMMON_JVM_OPTS -Dserver.port=${GATEWAY_PORT} -jar api-gateway.jar $CONFIG_FLAGS,file:/app/config/api-gateway.yml > /tmp/gateway.log 2>&1 &
+java -Xms32m -Xmx96m $COMMON_JVM_OPTS -Dserver.port=${GATEWAY_PORT} -jar api-gateway.jar $CONFIG_FLAGS,file:/app/config/api-gateway.yml > /tmp/gateway.log 2>&1 &
 GATEWAY_PID=$!
-wait_for_port ${GATEWAY_PORT} "API Gateway" $GATEWAY_PID 35
+wait_for_port ${GATEWAY_PORT} "API Gateway" 40
 
 echo "=========================================================="
-echo "  SafeBus Shield Cluster is fully online and supervised!"
+echo "  SafeBus Gateway & Identity Cluster is online!"
 echo "=========================================================="
 
-# Auto-recovery health supervisor loop (checks every 15 seconds)
 while true; do
   sleep 15
   if ! kill -0 $AUTH_PID 2>/dev/null; then
     echo "[Supervisor] Restarting Auth Service on port 8081..."
-    java -Xms8m -Xmx48m $COMMON_JVM_OPTS -Dserver.port=8081 -jar auth-service.jar $CONFIG_FLAGS,file:/app/config/auth-service.yml > /tmp/auth.log 2>&1 &
+    java -Xms32m -Xmx128m $COMMON_JVM_OPTS -Dserver.port=8081 -jar auth-service.jar $CONFIG_FLAGS,file:/app/config/auth-service.yml > /tmp/auth.log 2>&1 &
     AUTH_PID=$!
   fi
   if ! kill -0 $STUDENT_PID 2>/dev/null; then
     echo "[Supervisor] Restarting Student Service on port 8082..."
-    java -Xms8m -Xmx44m $COMMON_JVM_OPTS -Dserver.port=8082 -jar student-service.jar $CONFIG_FLAGS,file:/app/config/student-service.yml > /tmp/student.log 2>&1 &
+    java -Xms32m -Xmx128m $COMMON_JVM_OPTS -Dserver.port=8082 -jar student-service.jar $CONFIG_FLAGS,file:/app/config/student-service.yml > /tmp/student.log 2>&1 &
     STUDENT_PID=$!
-  fi
-  if ! kill -0 $TRANSPORT_PID 2>/dev/null; then
-    echo "[Supervisor] Restarting Transport Service on port 8083..."
-    java -Xms8m -Xmx40m $COMMON_JVM_OPTS -Dserver.port=8083 -jar transport-service.jar $CONFIG_FLAGS,file:/app/config/transport-service.yml > /tmp/transport.log 2>&1 &
-    TRANSPORT_PID=$!
-  fi
-  if ! kill -0 $ATTENDANCE_PID 2>/dev/null; then
-    echo "[Supervisor] Restarting Attendance Service on port 8084..."
-    java -Xms8m -Xmx32m $COMMON_JVM_OPTS -Dserver.port=8084 -jar attendance-service.jar $CONFIG_FLAGS,file:/app/config/attendance-service.yml > /tmp/attendance.log 2>&1 &
-    ATTENDANCE_PID=$!
-  fi
-  if ! kill -0 $NOTIFICATION_PID 2>/dev/null; then
-    echo "[Supervisor] Restarting Notification Service on port 8086..."
-    java -Xms8m -Xmx32m $COMMON_JVM_OPTS -Dserver.port=8086 -jar notification-service.jar $CONFIG_FLAGS,file:/app/config/notification-service.yml > /tmp/notification.log 2>&1 &
-    NOTIFICATION_PID=$!
   fi
   if ! kill -0 $GATEWAY_PID 2>/dev/null; then
     echo "[Supervisor] Restarting API Gateway on port ${GATEWAY_PORT}..."
-    java -Xms8m -Xmx36m $COMMON_JVM_OPTS -Dserver.port=${GATEWAY_PORT} -jar api-gateway.jar $CONFIG_FLAGS,file:/app/config/api-gateway.yml > /tmp/gateway.log 2>&1 &
+    java -Xms32m -Xmx96m $COMMON_JVM_OPTS -Dserver.port=${GATEWAY_PORT} -jar api-gateway.jar $CONFIG_FLAGS,file:/app/config/api-gateway.yml > /tmp/gateway.log 2>&1 &
     GATEWAY_PID=$!
-  fi
-  if ! kill -0 $CV_PID 2>/dev/null; then
-    echo "[Supervisor] Restarting Python CV Monitor on port 5001..."
-    cd /app/backend
-    CV_PORT=5001 python3 cv_driver_monitor.py > /tmp/cv.log 2>&1 &
-    CV_PID=$!
-    cd /app
   fi
 done
