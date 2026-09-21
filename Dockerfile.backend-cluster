@@ -41,14 +41,14 @@ RUN pip3 install --no-cache-dir -r ./backend/requirements-cv.txt
 COPY backend/ ./backend/
 
 # Copy all compiled Spring Boot microservice JARs from builder
-COPY --from=build /build/eureka-server/target/safebus-eureka-server-*.jar ./eureka-server.jar
-COPY --from=build /build/config-server/target/safebus-config-server-*.jar ./config-server.jar
-COPY --from=build /build/api-gateway/target/safebus-api-gateway-*.jar ./api-gateway.jar
-COPY --from=build /build/auth-service/target/safebus-auth-service-*.jar ./auth-service.jar
-COPY --from=build /build/student-service/target/safebus-student-service-*.jar ./student-service.jar
-COPY --from=build /build/transport-service/target/safebus-transport-service-*.jar ./transport-service.jar
-COPY --from=build /build/attendance-service/target/safebus-attendance-service-*.jar ./attendance-service.jar
-COPY --from=build /build/notification-service/target/safebus-notification-service-*.jar ./notification-service.jar
+COPY --from=build /build/eureka-server/target/safebus-eureka-server-1.0.0.jar ./eureka-server.jar
+COPY --from=build /build/config-server/target/safebus-config-server-1.0.0.jar ./config-server.jar
+COPY --from=build /build/api-gateway/target/safebus-api-gateway-1.0.0.jar ./api-gateway.jar
+COPY --from=build /build/auth-service/target/safebus-auth-service-1.0.0.jar ./auth-service.jar
+COPY --from=build /build/student-service/target/safebus-student-service-1.0.0.jar ./student-service.jar
+COPY --from=build /build/transport-service/target/safebus-transport-service-1.0.0.jar ./transport-service.jar
+COPY --from=build /build/attendance-service/target/safebus-attendance-service-1.0.0.jar ./attendance-service.jar
+COPY --from=build /build/notification-service/target/safebus-notification-service-1.0.0.jar ./notification-service.jar
 
 # Copy cluster startup script
 COPY start_cluster.sh ./start_cluster.sh

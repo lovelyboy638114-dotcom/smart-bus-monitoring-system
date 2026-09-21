@@ -15,6 +15,10 @@
     <name>SafeBus AI Common</name>
     <description>Shared libraries, constants, DTOs, and event schemas</description>
 
+    <properties>
+        <spring-boot.repackage.skip>true</spring-boot.repackage.skip>
+    </properties>
+
     <dependencies>
         <!-- Spring Boot Validation -->
         <dependency>
