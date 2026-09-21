@@ -13,7 +13,7 @@ COPY backend-springboot/transport-service ./transport-service
 COPY backend-springboot/attendance-service ./attendance-service
 COPY backend-springboot/notification-service ./notification-service
 
-RUN mvn clean package -DskipTests
+RUN mvn clean package -T 1C -DskipTests
 
 # Stage 2: Runtime Image with Java 21 + Python 3.11
 FROM eclipse-temurin:21-jdk-jammy
@@ -33,9 +33,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxrender-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python requirements
-COPY backend/requirements.txt ./backend/requirements.txt
-RUN pip3 install --no-cache-dir --break-system-packages -r ./backend/requirements.txt
+# Install Python requirements for CV Monitor
+COPY backend/requirements-cv.txt ./backend/requirements-cv.txt
+RUN pip3 install --no-cache-dir --break-system-packages -r ./backend/requirements-cv.txt
 
 # Copy Python CV service files
 COPY backend/ ./backend/
