@@ -11,7 +11,7 @@ GATEWAY_PORT=${PORT:-8080}
 unset PORT
 
 # High-efficiency, low-memory JVM parameters for cloud microservices (tuned for 1024MB container)
-COMMON_JVM_OPTS="-XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:CICompilerCount=2 -Xss256k -XX:MaxMetaspaceSize=68m -XX:ReservedCodeCacheSize=16m -Djava.net.preferIPv4Stack=true"
+COMMON_JVM_OPTS="-XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:CICompilerCount=2 -Xss256k -XX:ReservedCodeCacheSize=12m -Djava.net.preferIPv4Stack=true"
 
 # Cloud infrastructure environment variables
 export SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL:-"jdbc:mysql://mysql.railway.internal:3306/railway?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true"}
@@ -51,12 +51,12 @@ wait_for_port() {
 
 # 1. Start Eureka Discovery Server (Port 8761)
 echo "[1/9] Starting Eureka Server on port 8761..."
-java -Xms8m -Xmx32m $COMMON_JVM_OPTS -Dserver.port=8761 -jar eureka-server.jar > /tmp/eureka.log 2>&1 &
+java -Xms4m -Xmx24m $COMMON_JVM_OPTS -Dserver.port=8761 -jar eureka-server.jar > /tmp/eureka.log 2>&1 &
 wait_for_port 8761 "Eureka Server" $! 30
 
 # 2. Start Config Server (Port 8888)
 echo "[2/9] Starting Config Server on port 8888..."
-java -Xms8m -Xmx32m $COMMON_JVM_OPTS -Dserver.port=8888 -jar config-server.jar > /tmp/config.log 2>&1 &
+java -Xms4m -Xmx24m $COMMON_JVM_OPTS -Dserver.port=8888 -jar config-server.jar > /tmp/config.log 2>&1 &
 wait_for_port 8888 "Config Server" $! 30
 
 # 3. Start Python Edge AI CV Driver Monitor (Port 5001)
@@ -68,25 +68,25 @@ sleep 2
 
 # 4. Start Core Domain Microservices sequentially to prevent CPU/memory spikes
 echo "[4/9] Starting Auth Service on port 8081..."
-java -Xms8m -Xmx40m $COMMON_JVM_OPTS -Dserver.port=8081 -jar auth-service.jar > /tmp/auth.log 2>&1 &
+java -Xms4m -Xmx28m $COMMON_JVM_OPTS -Dserver.port=8081 -jar auth-service.jar > /tmp/auth.log 2>&1 &
 wait_for_port 8081 "Auth Service" $! 25
 
 echo "[5/9] Starting Student Service on port 8082..."
-java -Xms8m -Xmx48m $COMMON_JVM_OPTS -Dserver.port=8082 -jar student-service.jar > /tmp/student.log 2>&1 &
+java -Xms4m -Xmx32m $COMMON_JVM_OPTS -Dserver.port=8082 -jar student-service.jar > /tmp/student.log 2>&1 &
 wait_for_port 8082 "Student Service" $! 25
 
 echo "[6/9] Starting Transport Service on port 8083..."
-java -Xms8m -Xmx40m $COMMON_JVM_OPTS -Dserver.port=8083 -jar transport-service.jar > /tmp/transport.log 2>&1 &
+java -Xms4m -Xmx28m $COMMON_JVM_OPTS -Dserver.port=8083 -jar transport-service.jar > /tmp/transport.log 2>&1 &
 wait_for_port 8083 "Transport Service" $! 25
 
 echo "[7/9] Starting Attendance Service on port 8084..."
-java -Xms8m -Xmx40m $COMMON_JVM_OPTS -Dserver.port=8084 -jar attendance-service.jar > /tmp/attendance.log 2>&1 &
+java -Xms4m -Xmx28m $COMMON_JVM_OPTS -Dserver.port=8084 -jar attendance-service.jar > /tmp/attendance.log 2>&1 &
 wait_for_port 8084 "Attendance Service" $! 25
 
 echo "[8/9] Starting Notification Service on port 8086..."
-java -Xms8m -Xmx40m $COMMON_JVM_OPTS -Dserver.port=8086 -jar notification-service.jar > /tmp/notification.log 2>&1 &
+java -Xms4m -Xmx28m $COMMON_JVM_OPTS -Dserver.port=8086 -jar notification-service.jar > /tmp/notification.log 2>&1 &
 wait_for_port 8086 "Notification Service" $! 25
 
 # 5. Start API Gateway on main exposed PORT in foreground
 echo "[9/9] Starting Spring Cloud API Gateway on port ${GATEWAY_PORT} (Public Entrypoint)..."
-exec java -Xms8m -Xmx48m $COMMON_JVM_OPTS -Dserver.port=${GATEWAY_PORT} -jar api-gateway.jar
+exec java -Xms4m -Xmx36m $COMMON_JVM_OPTS -Dserver.port=${GATEWAY_PORT} -jar api-gateway.jar
