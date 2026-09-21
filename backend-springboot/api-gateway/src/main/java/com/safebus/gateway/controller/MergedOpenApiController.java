@@ -33,6 +33,26 @@ public class MergedOpenApiController {
         SERVICE_URLS.put("Notification Service", System.getenv().getOrDefault("NOTIFICATION_SERVICE_URL", "http://localhost:8086") + "/v3/api-docs");
     }
 
+    @GetMapping(value = {"/", "/index.html"})
+    public Mono<Void> rootRedirect(ServerHttpResponse response) {
+        String frontendUrl = System.getenv().getOrDefault("RAILWAY_SERVICE_SAFEBUS_FRONTEND_URL", "safebus-frontend-production.up.railway.app");
+        if (!frontendUrl.startsWith("http://") && !frontendUrl.startsWith("https://")) {
+            frontendUrl = "https://" + frontendUrl;
+        }
+        response.setStatusCode(HttpStatus.FOUND);
+        response.getHeaders().setLocation(URI.create(frontendUrl));
+        return response.setComplete();
+    }
+
+    @GetMapping(value = "/health", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Mono<Map<String, Object>> healthCheck() {
+        Map<String, Object> health = new LinkedHashMap<>();
+        health.put("status", "UP");
+        health.put("gateway", "SafeBus Cloud Gateway");
+        health.put("frontend", "https://safebus-frontend-production.up.railway.app");
+        return Mono.just(health);
+    }
+
     @GetMapping(value = {"/swagger", "/docs", "/api-docs"})
     public Mono<Void> redirectToUnifiedSwagger(ServerHttpResponse response) {
         response.setStatusCode(HttpStatus.FOUND);

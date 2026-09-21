@@ -64,28 +64,42 @@ BACKEND_BASE = os.environ.get("BACKEND_BASE", "http://localhost:8080/api/v1/driv
 INCIDENTS_API = f"{BACKEND_BASE}/incidents"
 BEHAVIOR_API = f"{BACKEND_BASE}/behavior"
 
-# Initialize MediaPipe Tasks FaceLandmarker
-try:
-    import mediapipe as mp
-    from mediapipe.tasks import python
-    from mediapipe.tasks.python import vision
+# Lazy-loaded MediaPipe FaceLandmarker (saves ~130MB RAM during boot)
+detector = None
+USE_MEDIAPIPE = False
+_detector_initialized = False
+mp = None
 
-    import os
-    model_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'face_landmarker.task')
-    base_options = python.BaseOptions(model_asset_path=model_path)
-    options = vision.FaceLandmarkerOptions(
-        base_options=base_options,
-        output_face_blendshapes=True,
-        output_facial_transformation_matrixes=True,
-        running_mode=vision.RunningMode.IMAGE
-    )
-    detector = vision.FaceLandmarker.create_from_options(options)
-    USE_MEDIAPIPE = True
-    print("\n[SafeBus AI] MediaPipe FaceLandmarker loaded successfully!")
-except Exception as e:
-    USE_MEDIAPIPE = False
-    detector = None
-    print(f"\n[SafeBus AI Fallback] MediaPipe Tasks API failed: {e}")
+def get_detector():
+    global detector, USE_MEDIAPIPE, _detector_initialized, mp
+    if _detector_initialized:
+        return detector
+    _detector_initialized = True
+    try:
+        import mediapipe as _mp
+        from mediapipe.tasks import python as _python
+        from mediapipe.tasks.python import vision as _vision
+        mp = _mp
+        model_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'face_landmarker.task')
+        if os.path.exists(model_path):
+            base_options = _python.BaseOptions(model_asset_path=model_path)
+            options = _vision.FaceLandmarkerOptions(
+                base_options=base_options,
+                output_face_blendshapes=True,
+                output_facial_transformation_matrixes=True,
+                running_mode=_vision.RunningMode.IMAGE
+            )
+            detector = _vision.FaceLandmarker.create_from_options(options)
+            USE_MEDIAPIPE = True
+            print("\n[SafeBus AI] MediaPipe FaceLandmarker loaded successfully on-demand!")
+        else:
+            USE_MEDIAPIPE = False
+            print("\n[SafeBus AI] face_landmarker.task not found; using fallback.")
+    except Exception as e:
+        USE_MEDIAPIPE = False
+        detector = None
+        print(f"\n[SafeBus AI Fallback] MediaPipe Tasks API failed: {e}")
+    return detector
 
 # Landmark Indices (MediaPipe Face Mesh 478 layout)
 # Right Eye (Subject's right, left side of image)
@@ -364,11 +378,12 @@ def process_single_frame(frame, driver_id="driver@happyjourney.ai", b_id="TN38AB
 
     now = time.time()
 
-    if USE_MEDIAPIPE and detector:
+    active_detector = get_detector()
+    if USE_MEDIAPIPE and active_detector:
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
         with detector_lock:
-            results = detector.detect(mp_image)
+            results = active_detector.detect(mp_image)
 
         if results.face_landmarks and len(results.face_landmarks) > 0:
             face_detected = True
