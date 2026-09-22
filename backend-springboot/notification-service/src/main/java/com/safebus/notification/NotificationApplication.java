@@ -16,7 +16,6 @@ public class NotificationApplication {
     }
 
     @Bean
-    @LoadBalanced
     public RestTemplate restTemplate() {
         return new RestTemplate();
     }

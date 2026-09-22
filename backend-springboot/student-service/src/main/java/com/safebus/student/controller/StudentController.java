@@ -7,7 +7,9 @@ import com.safebus.common.dto.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import com.safebus.student.dto.StudentRegistrationRequest;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -134,6 +136,52 @@ public class StudentController {
         } catch (Exception e) {
             return ResponseEntity.status(500)
                     .body(ApiResponse.error("Failed to update boarding status: " + e.getMessage(), "BOARD_500", correlationId));
+        }
+    }
+
+    @PutMapping("/{studentId}/profile")
+    @Operation(summary = "Update Student Profile Details", description = "Updates medical notes, blood group, and home address.")
+    public ResponseEntity<ApiResponse<Student>> updateProfile(
+            @PathVariable("studentId") String studentId,
+            @RequestBody Map<String, String> payload) {
+        String correlationId = UUID.randomUUID().toString();
+        try {
+            String bloodGroup = payload.get("bloodGroup");
+            String address = payload.get("address");
+            String medicalNotes = payload.get("medicalNotes");
+            Student updated = studentService.updateStudentProfile(studentId, bloodGroup, address, medicalNotes);
+            return ResponseEntity.ok(ApiResponse.success("Student profile updated successfully", updated, correlationId));
+        } catch (Exception e) {
+            return ResponseEntity.status(404)
+                    .body(ApiResponse.error(e.getMessage(), "STU_001", correlationId));
+        }
+    }
+
+    @PutMapping("/{id}")
+    @Operation(summary = "Update Student Registration", description = "Updates student profile information.")
+    public ResponseEntity<ApiResponse<Student>> updateStudent(
+            @PathVariable("id") String id,
+            @RequestBody StudentRegistrationRequest request) {
+        String correlationId = UUID.randomUUID().toString();
+        try {
+            Student updated = studentService.updateStudent(id, request);
+            return ResponseEntity.ok(ApiResponse.success("Student updated successfully", updated, correlationId));
+        } catch (Exception e) {
+            return ResponseEntity.status(400)
+                    .body(ApiResponse.error(e.getMessage(), "STU_001", correlationId));
+        }
+    }
+
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Delete Student Record", description = "Deletes student and cascaded login/attendance records.")
+    public ResponseEntity<ApiResponse<Void>> deleteStudent(@PathVariable("id") String id) {
+        String correlationId = UUID.randomUUID().toString();
+        try {
+            studentService.deleteStudent(id);
+            return ResponseEntity.ok(ApiResponse.success("Student deleted successfully", null, correlationId));
+        } catch (Exception e) {
+            return ResponseEntity.status(404)
+                    .body(ApiResponse.error(e.getMessage(), "STU_001", correlationId));
         }
     }
 }

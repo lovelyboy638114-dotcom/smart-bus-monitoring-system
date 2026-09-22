@@ -154,6 +154,9 @@ public class BusService {
 
                         rabbitTemplate.convertAndSend("driver.exchange", "bus.location.alert", alertPayload);
                     }
+                } else if (distKm > 2.5) {
+                    String dedupeKey = busId + "-" + studentId + "-2km-" + stopName;
+                    triggeredApproachingAlerts.remove(dedupeKey);
                 }
             }
         } catch (Exception e) {
@@ -162,6 +165,11 @@ public class BusService {
     }
 
     public void resetTripDeduplication(String busId) {
+        if (busId == null || "ALL".equalsIgnoreCase(busId) || busId.trim().isEmpty()) {
+            triggeredApproachingAlerts.clear();
+            System.out.println("[BusService] Cleared ALL 2km approaching deduplication caches.");
+            return;
+        }
         String normalized = normalizeBusId(busId);
         triggeredApproachingAlerts.removeIf(key -> key.startsWith(normalized) || (busId != null && key.startsWith(busId)));
         System.out.println("[BusService] Cleared 2km approaching deduplication cache for bus " + normalized);

@@ -7,6 +7,7 @@ import com.safebus.common.dto.StudentDto;
 import com.safebus.common.dto.response.ApiResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
@@ -17,6 +18,9 @@ import java.util.*;
 @Service
 public class BusAssignmentService {
     private static final Logger log = LoggerFactory.getLogger(BusAssignmentService.class);
+
+    @Value("${services.student.url:http://127.0.0.1:8082}")
+    private String studentServiceUrl;
 
     private final BusRepository busRepository;
     private final RouteRepository routeRepository;
@@ -49,7 +53,7 @@ public class BusAssignmentService {
         // Step 1: Call student-service via REST to get student data
         StudentDto student = null;
         try {
-            String studentUrl = "http://student-service/api/v1/students/" + studentId;
+            String studentUrl = studentServiceUrl + "/api/v1/students/" + studentId;
             ApiResponse<?> response = restTemplate.getForObject(studentUrl, ApiResponse.class);
             if (response != null && response.isSuccess()) {
                 // Map the response data object to StudentDto
@@ -142,7 +146,7 @@ public class BusAssignmentService {
         for (Bus bus : buses) {
             long occupancy = 0;
             try {
-                String countUrl = "http://student-service/api/v1/students/assigned-count?busId=" + bus.getId();
+                String countUrl = studentServiceUrl + "/api/v1/students/assigned-count?busId=" + bus.getId();
                 ApiResponse<?> countResponse = restTemplate.getForObject(countUrl, ApiResponse.class);
                 if (countResponse != null && countResponse.isSuccess()) {
                     occupancy = Long.parseLong(countResponse.getData().toString());
@@ -192,7 +196,7 @@ public class BusAssignmentService {
 
     private boolean updateStudentStatus(String studentId, String busId, String status) {
         try {
-            String updateUrl = "http://student-service/api/v1/students/" + studentId + "/assign-bus?busId=" + busId + "&status=" + status;
+            String updateUrl = studentServiceUrl + "/api/v1/students/" + studentId + "/assign-bus?busId=" + busId + "&status=" + status;
             restTemplate.put(updateUrl, null);
             return true;
         } catch (Exception e) {

@@ -164,7 +164,7 @@ const StudentMonitoring = () => {
     e.preventDefault();
     setRegisterLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/admin/register/student`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/admin/students`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -180,7 +180,7 @@ const StudentMonitoring = () => {
       const resJson = await response.json();
       if (response.ok && resJson.success) {
         // Refresh local student lists
-        const refreshResponse = await fetch(`${API_BASE_URL}/api/students`);
+        const refreshResponse = await fetch(`${API_BASE_URL}/api/v1/students`);
         const refreshedData = await refreshResponse.json();
         setStudents(refreshedData);
         

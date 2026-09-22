@@ -285,65 +285,88 @@ const AdminLiveTrackingTab: React.FC = () => {
             </div>
 
             <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 text-xs flex flex-col gap-3 text-slate-600">
-              <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm mx-auto text-center">
-                <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(`http://${networkIp}:5173/gps-controller`)}`}
-                  alt="Scan QR code with Phone"
-                  className="w-36 h-36 mx-auto rounded-xl"
-                />
-                <span className="text-[10px] text-slate-400 font-semibold block mt-1.5">Point phone camera to open live</span>
-              </div>
+              {(() => {
+                const isCloud = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+                const phoneControllerUrl = isCloud
+                  ? `${window.location.origin}/gps-controller`
+                  : `http://${networkIp || window.location.hostname}:5173/gps-controller`;
 
-              <div className="flex items-center justify-between text-[11px] font-bold text-slate-700">
-                <span>Network Address:</span>
-                {availableIps.length > 1 ? (
-                  <select
-                    value={networkIp}
-                    onChange={(e) => setNetworkIp(e.target.value)}
-                    className="bg-white border border-slate-300 rounded-lg px-2 py-0.5 text-xs text-indigo-700 font-mono"
-                  >
-                    {availableIps.map(item => (
-                      <option key={item.ip} value={item.ip}>{item.ip} ({item.interface})</option>
-                    ))}
-                  </select>
-                ) : (
-                  <input
-                    type="text"
-                    value={networkIp}
-                    onChange={(e) => setNetworkIp(e.target.value)}
-                    className="bg-white border border-slate-300 rounded-lg px-2 py-0.5 text-xs text-indigo-700 font-mono w-32 text-right"
-                  />
-                )}
-              </div>
+                return (
+                  <>
+                    <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm mx-auto text-center">
+                      <img
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(phoneControllerUrl)}`}
+                        alt="Scan QR code with Phone"
+                        className="w-36 h-36 mx-auto rounded-xl"
+                      />
+                      <span className="text-[10px] text-slate-400 font-semibold block mt-1.5">Point phone camera to open live</span>
+                    </div>
 
-              <p className="font-semibold text-slate-800">
-                1. Connect phone & laptop to the <span className="text-indigo-600 font-black">same Wi-Fi or Hotspot</span>.
-              </p>
-              <p className="font-semibold text-slate-800">
-                2. On your phone browser, open this URL:
-              </p>
-              <div className="flex items-center gap-2 bg-white p-2.5 rounded-xl border border-slate-200 font-mono text-xs text-indigo-700 font-bold justify-between">
-                <span className="truncate">{`http://${networkIp}:5173/gps-controller`}</span>
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(`http://${networkIp}:5173/gps-controller`);
-                    setCopied(true);
-                    setTimeout(() => setCopied(false), 2000);
-                  }}
-                  className="px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded text-[10px] text-slate-700 shrink-0 flex items-center gap-1 cursor-pointer"
-                >
-                  {copied ? <Check className="w-3 h-3 text-emerald-600" /> : null}
-                  {copied ? 'Copied' : 'Copy'}
-                </button>
-              </div>
-              <p className="text-[11px] text-slate-500">
-                3. Use the <strong className="text-slate-900">Route Slider</strong> or tap <strong className="text-amber-600">⚡ Approach 1.8km</strong> to trigger the 2KM parent WhatsApp proximity alert!
-              </p>
+                    {!isCloud && (
+                      <div className="flex items-center justify-between text-[11px] font-bold text-slate-700">
+                        <span>Network Address:</span>
+                        {availableIps.length > 1 ? (
+                          <select
+                            value={networkIp}
+                            onChange={(e) => setNetworkIp(e.target.value)}
+                            className="bg-white border border-slate-300 rounded-lg px-2 py-0.5 text-xs text-indigo-700 font-mono"
+                          >
+                            {availableIps.map(item => (
+                              <option key={item.ip} value={item.ip}>{item.ip} ({item.interface})</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            type="text"
+                            value={networkIp}
+                            onChange={(e) => setNetworkIp(e.target.value)}
+                            className="bg-white border border-slate-300 rounded-lg px-2 py-0.5 text-xs text-indigo-700 font-mono w-32 text-right"
+                          />
+                        )}
+                      </div>
+                    )}
 
-              <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-[10px] text-amber-800 flex flex-col gap-1">
-                <span className="font-bold">⚠️ On Campus Wi-Fi (KCE-WIFI)?</span>
-                <span>College Wi-Fi blocks direct phone-to-laptop communication (AP Isolation). Turn on <strong>Mobile Hotspot</strong> on your phone/laptop, or test directly using <strong>Open Controller (New Tab)</strong> below!</span>
-              </div>
+                    {isCloud ? (
+                      <p className="font-semibold text-slate-800">
+                        Scan QR code with your phone camera or copy and open the link below on your phone.
+                      </p>
+                    ) : (
+                      <>
+                        <p className="font-semibold text-slate-800">
+                          1. Connect phone & laptop to the <span className="text-indigo-600 font-black">same Wi-Fi or Hotspot</span>.
+                        </p>
+                        <p className="font-semibold text-slate-800">
+                          2. On your phone browser, open this URL:
+                        </p>
+                      </>
+                    )}
+
+                    <div className="flex items-center gap-2 bg-white p-2.5 rounded-xl border border-slate-200 font-mono text-xs text-indigo-700 font-bold justify-between">
+                      <span className="truncate">{phoneControllerUrl}</span>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(phoneControllerUrl);
+                          setCopied(true);
+                          setTimeout(() => setCopied(false), 2000);
+                        }}
+                        className="px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded text-[10px] text-slate-700 shrink-0 flex items-center gap-1 cursor-pointer"
+                      >
+                        {copied ? <Check className="w-3 h-3 text-emerald-600" /> : null}
+                        {copied ? 'Copied' : 'Copy'}
+                      </button>
+                    </div>
+
+                    <p className="text-[11px] text-slate-500">
+                      3. Use the <strong className="text-slate-900">Route Slider</strong> or tap <strong className="text-amber-600">⚡ Approach 1.8km</strong> to trigger the 2KM parent WhatsApp proximity alert!
+                    </p>
+
+                    <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-[10px] text-amber-800 flex flex-col gap-1">
+                      <span className="font-bold">⚠️ On Campus Wi-Fi (KCE-WIFI)?</span>
+                      <span>College Wi-Fi blocks direct phone-to-laptop communication (AP Isolation). Turn on <strong>Mobile Hotspot</strong> on your phone/laptop, or test directly using <strong>Open Controller (New Tab)</strong> below!</span>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
 
             <div className="flex gap-2">

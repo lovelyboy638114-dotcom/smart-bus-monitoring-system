@@ -25,7 +25,7 @@ public class AdminRegistrationController {
         this.adminRegistrationService = adminRegistrationService;
     }
 
-    @PostMapping("/students")
+    @PostMapping({"/students", "/register/student"})
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Register/Provision Student", description = "Creates a student and parent profile, assigns closest route bus, and publishes credentials.")
     @SecurityRequirement(name = "Bearer Authentication")

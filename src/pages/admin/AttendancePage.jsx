@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { QrCode, ScanFace, CheckSquare, Sparkles, UserCheck, CheckCircle2, Sun, RotateCcw, Users } from 'lucide-react';
+import { QrCode, ScanFace, CheckSquare, Sparkles, UserCheck, CheckCircle2, Sun, RotateCcw, Users, RefreshCw } from 'lucide-react';
+import { API_BASE_URL } from '../../config';
 
 const AttendancePage = () => {
-  const { students, handleStudentBoarding } = useApp();
+  const { students, setStudents, handleStudentBoarding, triggerNotification } = useApp();
   const [scanResult, setScanResult] = useState(null); // { type: 'qr' | 'face', name: string, time: string, shift: string }
   const [faceActiveScan, setFaceActiveScan] = useState(false);
   const [activeShift, setActiveShift] = useState('morning'); // 'morning' | 'return'
+  const [resettingShift, setResettingShift] = useState(false);
 
   const isReturn = activeShift === 'return';
 
@@ -71,6 +73,50 @@ const AttendancePage = () => {
     }, 2000);
   };
 
+  const handleResetShift = async () => {
+    setResettingShift(true);
+    const shiftParam = isReturn ? 'RETURN' : 'MORNING';
+    try {
+      await fetch(`${API_BASE_URL}/api/v1/attendance/reset?shift=${shiftParam}`, {
+        method: 'POST'
+      });
+
+      // Update local student records
+      setStudents(prev => prev.map(s => {
+        if (isReturn) {
+          return {
+            ...s,
+            boardedReturn: false,
+            reachedHome: false,
+            returnAttendance: 'Absent',
+            status: s.boarded ? 'Dropped' : 'Waiting',
+            student_status: s.boarded ? 'Dropped' : 'Waiting'
+          };
+        } else {
+          return {
+            ...s,
+            boarded: false,
+            boardedTime: null,
+            reachedSchool: false,
+            morningAttendance: 'Absent',
+            status: 'Waiting',
+            student_status: 'Waiting'
+          };
+        }
+      }));
+
+      if (triggerNotification) {
+        triggerNotification(`✅ ${isReturn ? 'Evening Return' : 'Morning'} attendance reset successfully. Ready for scanning.`, 'success');
+      }
+    } catch (e) {
+      if (triggerNotification) {
+        triggerNotification(`❌ Failed to reset attendance: ${e.message}`, 'error');
+      }
+    } finally {
+      setResettingShift(false);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-6 p-6">
       {/* View Header */}
@@ -82,29 +128,43 @@ const AttendancePage = () => {
           </p>
         </div>
 
-        {/* Shift Toggle Tabs */}
-        <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl border border-slate-200">
+        {/* Action Controls */}
+        <div className="flex items-center gap-3">
+          {/* Shift Toggle Tabs */}
+          <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl border border-slate-200">
+            <button
+              onClick={() => setActiveShift('morning')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                !isReturn 
+                  ? 'bg-amber-500 text-white shadow-sm' 
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Sun className="w-3.5 h-3.5" />
+              <span>☀ Morning Shift ({morningPresentCount}/{students.length})</span>
+            </button>
+            <button
+              onClick={() => setActiveShift('return')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                isReturn 
+                  ? 'bg-blue-600 text-white shadow-sm' 
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>🌙 Return Shift ({returnPresentCount}/{students.length})</span>
+            </button>
+          </div>
+
+          {/* Reset Current Shift Attendance Button */}
           <button
-            onClick={() => setActiveShift('morning')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-              !isReturn 
-                ? 'bg-amber-500 text-white shadow-sm' 
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
+            onClick={handleResetShift}
+            disabled={resettingShift}
+            title={`Reset all checked-in students for ${isReturn ? 'Return' : 'Morning'} shift to re-test scanning`}
+            className="px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 bg-rose-50 text-rose-600 hover:bg-rose-100 active:scale-95 border border-rose-200 shadow-sm disabled:opacity-50"
           >
-            <Sun className="w-3.5 h-3.5" />
-            <span>☀ Morning Shift ({morningPresentCount}/{students.length})</span>
-          </button>
-          <button
-            onClick={() => setActiveShift('return')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-              isReturn 
-                ? 'bg-blue-600 text-white shadow-sm' 
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>🌙 Return Shift ({returnPresentCount}/{students.length})</span>
+            <RefreshCw className={`w-3.5 h-3.5 ${resettingShift ? 'animate-spin' : ''}`} />
+            <span>{resettingShift ? 'Resetting...' : 'Reset Shift'}</span>
           </button>
         </div>
       </div>

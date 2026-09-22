@@ -711,9 +711,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Reset Simulation back to starting coordinates and time
-  const resetSimulation = () => {
+  const resetSimulation = async () => {
     setSimMinutes(7 * 60 + 18);
     setSimTime("07:18 AM");
+    alertsSentRef.current = {};
+    setNotifications([]);
+    setDriverMessages([]);
+    setDriverComplaints([]);
+
+    // Trigger backend reset for telemetry geofence deduplication and daily attendance
+    try {
+      await Promise.all([
+        fetch(`${API_BASE_URL}/api/v1/telemetry/reset?busId=ALL`, { method: 'POST' }).catch(() => {}),
+        fetch(`${API_BASE_URL}/api/v1/attendance/reset?shift=ALL`, { method: 'POST' }).catch(() => {})
+      ]);
+    } catch (e) {}
+
     // Fetch fresh copy of students and buses from backend
     fetch(`${API_BASE_URL}/api/v1/students`)
       .then(res => res.json())
@@ -817,10 +830,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       })
       .catch(err => console.error("Failed to fetch students/buses in AppContext reset:", err));
 
-    setNotifications([]);
-    alertsSentRef.current = {};
-    setDriverMessages([]);
-    setDriverComplaints([]);
     triggerNotification("Simulation restarted successfully. Next run starts at 07:20 AM.", "info");
   };
 
@@ -1502,6 +1511,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!bus) return prevBuses;
 
       const nextIndex = (bus.currentStopIndex + 2) % bus.path.length;
+      
+      // Auto-clear deduplication on loop wrap-around
+      if (nextIndex === 0 || nextIndex < bus.currentStopIndex) {
+        Object.keys(alertsSentRef.current).forEach(k => {
+          if (k.startsWith(`${bus.id}-`)) {
+            delete alertsSentRef.current[k];
+          }
+        });
+      }
+
       const newLoc = bus.path[nextIndex];
       const prevLoc = bus.currentLocation || bus.path[bus.currentStopIndex];
       
@@ -1533,6 +1552,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               { targetRole: 'ALL', category: 'BUS_ARRIVAL', busId: bus.id }
             );
           }
+        } else if (distToNextStop > 2.5 && alertsSentRef.current[proximityKey]) {
+          delete alertsSentRef.current[proximityKey];
         }
       }
 

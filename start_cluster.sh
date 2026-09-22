@@ -14,9 +14,10 @@ GATEWAY_PORT=${PORT:-8080}
 unset PORT
 
 # High-efficiency, low-overhead JVM parameters (balanced for 1024MB container)
-COMMON_JVM_OPTS="-XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:CICompilerCount=1 -Xss256k -XX:ReservedCodeCacheSize=10m -XX:MinHeapFreeRatio=5 -XX:MaxHeapFreeRatio=15 -XX:+UseCompressedOops -XX:+UseCompressedClassPointers -Deureka.client.enabled=false -Dspringdoc.api-docs.enabled=false -Dspringdoc.swagger-ui.enabled=false -Dspring.jpa.hibernate.ddl-auto=none -Dspring.main.allow-bean-definition-overriding=true -Dserver.tomcat.threads.max=4 -Dserver.tomcat.threads.min-spare=2 -Dreactor.netty.ioWorkerCount=2 -Djava.net.preferIPv4Stack=true"
+COMMON_JVM_OPTS="-XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:CICompilerCount=1 -Xss256k -XX:ReservedCodeCacheSize=10m -XX:MinHeapFreeRatio=5 -XX:MaxHeapFreeRatio=15 -XX:+UseCompressedOops -XX:+UseCompressedClassPointers -Deureka.client.enabled=false -Dservices.student.url=http://127.0.0.1:8082 -Dspringdoc.api-docs.enabled=false -Dspringdoc.swagger-ui.enabled=false -Dspring.jpa.hibernate.ddl-auto=none -Dspring.main.allow-bean-definition-overriding=true -Dserver.tomcat.threads.max=4 -Dserver.tomcat.threads.min-spare=2 -Dreactor.netty.ioWorkerCount=2 -Djava.net.preferIPv4Stack=true"
 
 # Cloud infrastructure environment variables
+export STUDENT_SERVICE_URL=${STUDENT_SERVICE_URL:-"http://127.0.0.1:8082"}
 export SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL:-"jdbc:mysql://mysql.railway.internal:3306/railway?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true"}
 export SPRING_DATASOURCE_USERNAME=${SPRING_DATASOURCE_USERNAME:-"root"}
 export SPRING_DATASOURCE_PASSWORD=${SPRING_DATASOURCE_PASSWORD:-"MAlRwizXxvhodpYLOHSuWfhlIXDJlgAJ"}

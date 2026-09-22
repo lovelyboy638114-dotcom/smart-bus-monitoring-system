@@ -475,7 +475,8 @@ export const PhoneGpsController: React.FC = () => {
     }
   }, []);
 
-  const phoneUrl = `http://${deviceIp}:5173/gps-controller`;
+  const isCloud = window.location.hostname && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+  const phoneUrl = isCloud ? `${window.location.origin}/gps-controller` : `http://${deviceIp}:5173/gps-controller`;
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-3 pb-16 max-w-lg mx-auto flex flex-col gap-3.5">

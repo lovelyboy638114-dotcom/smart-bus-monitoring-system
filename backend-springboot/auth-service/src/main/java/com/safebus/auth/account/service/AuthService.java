@@ -126,4 +126,38 @@ public class AuthService {
                 .build();
         auditRepository.save(audit);
     }
+
+    @Transactional
+    public Account registerUser(java.util.Map<String, Object> payload) {
+        String username = (String) payload.get("username");
+        String password = (String) payload.get("password");
+        String fullName = (String) payload.get("fullName");
+        String role = (String) payload.get("role");
+        String phone = (String) payload.get("phone");
+        String busRoute = (String) payload.get("busRoute");
+
+        if (username == null || username.trim().isEmpty() || password == null || password.trim().isEmpty()) {
+            throw new IllegalArgumentException("Username and password are required.");
+        }
+        if (accountRepository.findByUsername(username.trim()).isPresent()) {
+            throw new IllegalArgumentException("Username '" + username.trim() + "' is already registered.");
+        }
+
+        String normalizedRole = (role != null && !role.trim().isEmpty()) ? role.trim().toUpperCase() : "PARENT";
+
+        Account account = Account.builder()
+                .username(username.trim())
+                .password(passwordEncoder.encode(password))
+                .fullName(fullName != null ? fullName.trim() : username.trim())
+                .role(normalizedRole)
+                .phone(phone)
+                .busRoute(busRoute)
+                .accountStatus("ACTIVE")
+                .mustChangePassword(false)
+                .passwordVersion(1)
+                .failedLoginAttempts(0)
+                .build();
+
+        return accountRepository.save(account);
+    }
 }

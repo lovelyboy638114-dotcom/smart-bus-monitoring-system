@@ -6,6 +6,7 @@ import com.safebus.common.dto.response.ApiResponse;
 import com.safebus.common.dto.WebSocketMessage;
 import com.safebus.notification.websocket.WebSocketAlertHandler;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 import java.time.LocalDateTime;
@@ -18,6 +19,9 @@ public class AttendanceEventConsumer {
     private final ParentNotificationLogRepository logRepository;
     private final RestTemplate restTemplate;
     private final WebSocketAlertHandler webSocketAlertHandler;
+
+    @Value("${services.student.url:http://127.0.0.1:8082}")
+    private String studentServiceUrl;
 
     public AttendanceEventConsumer(ParentNotificationLogRepository logRepository, RestTemplate restTemplate, WebSocketAlertHandler webSocketAlertHandler) {
         this.logRepository = logRepository;
@@ -36,7 +40,7 @@ public class AttendanceEventConsumer {
             System.out.println("[Notification Consumer] Received scan event. Student: " + studentId + ", Bus: " + busId + ", Type: " + type);
 
             // Fetch Student Details from Student Service REST Lookup
-            String studentUrl = "http://student-service/api/v1/students/" + studentId;
+            String studentUrl = studentServiceUrl + "/api/v1/students/" + studentId;
             String parentPhone = "Unknown Phone";
             String parentEmail = "Unknown Email";
             String studentName = "Student";
@@ -55,7 +59,7 @@ public class AttendanceEventConsumer {
 
             // Update Student Boarding Status in Student Service
             try {
-                String updateUrl = "http://student-service/api/v1/students/" + studentId + "/board?boardingType=" + type + "&scanTime=" + scanTime;
+                String updateUrl = studentServiceUrl + "/api/v1/students/" + studentId + "/board?boardingType=" + type + "&scanTime=" + scanTime;
                 restTemplate.put(updateUrl, null);
                 System.out.println("[Notification Consumer] Updated student boarding status in student-service.");
             } catch (Exception e) {

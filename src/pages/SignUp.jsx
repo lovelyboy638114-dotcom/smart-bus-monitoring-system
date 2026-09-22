@@ -54,7 +54,7 @@ const SignUp = () => {
     }
 
     // Try posting to backend if connected
-    const API_URL = `${API_BASE_URL}/api`;
+    const API_URL = `${API_BASE_URL}/api/v1/auth`;
     let backendSuccess = false;
     try {
       const response = await fetch(`${API_URL}/register`, {

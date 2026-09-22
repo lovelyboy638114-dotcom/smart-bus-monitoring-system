@@ -107,4 +107,24 @@ public class AuthController {
         }
         return "Desktop";
     }
+
+    @PostMapping("/register")
+    @Operation(summary = "User Self-Registration", description = "Allows students and parents to self-register an account.")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> register(
+            @RequestBody Map<String, Object> payload) {
+        String correlationId = UUID.randomUUID().toString();
+        try {
+            com.safebus.auth.account.entity.Account account = authService.registerUser(payload);
+            Map<String, Object> data = Map.of(
+                    "id", account.getId(),
+                    "username", account.getUsername(),
+                    "fullName", account.getFullName(),
+                    "role", account.getRole()
+            );
+            return ResponseEntity.ok(ApiResponse.success("Account registered successfully", data, correlationId));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.error(e.getMessage(), "AUTH_002", correlationId));
+        }
+    }
 }
