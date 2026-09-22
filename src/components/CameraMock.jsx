@@ -129,8 +129,8 @@ const CameraMock = ({
     if (!webcamActive || !isActiveWebcam) return;
 
     const canvas = document.createElement('canvas');
-    canvas.width = 640;
-    canvas.height = 480;
+    canvas.width = 400;
+    canvas.height = 300;
     const ctx = canvas.getContext('2d');
 
     // Stagger sampling slightly so all 3 cameras send smoothly without server contention
@@ -143,7 +143,7 @@ const CameraMock = ({
 
       try {
         ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-        const frameB64 = canvas.toDataURL('image/jpeg', 0.70);
+        const frameB64 = canvas.toDataURL('image/jpeg', 0.65);
 
         const res = await fetch(`${CV_SERVICE_URL}/process_frame`, {
           method: 'POST',

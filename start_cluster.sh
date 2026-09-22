@@ -64,7 +64,7 @@ sleep 1
 # 2. Python Edge AI CV Driver Monitor (Port 5001 - Lazy Loaded, uses only ~15MB idle)
 echo "[2/5] Starting Python AI CV Driver Monitor on port 5001..."
 cd /app/backend
-CV_PORT=5001 python3 cv_driver_monitor.py > /tmp/cv.log 2>&1 &
+CV_PORT=5001 python3 cv_driver_monitor.py --service > /tmp/cv.log 2>&1 &
 CV_PID=$!
 cd /app
 sleep 1
@@ -125,7 +125,7 @@ while true; do
   if ! kill -0 $CV_PID 2>/dev/null; then
     echo "[Supervisor] Restarting Python CV Monitor on port 5001..."
     cd /app/backend
-    CV_PORT=5001 python3 cv_driver_monitor.py > /tmp/cv.log 2>&1 &
+    CV_PORT=5001 python3 cv_driver_monitor.py --service > /tmp/cv.log 2>&1 &
     CV_PID=$!
     cd /app
   fi
