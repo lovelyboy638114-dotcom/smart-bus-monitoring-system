@@ -1,0 +1,1332 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "SafeBus Shield \u2014 Unified Microservices API",
+    "description": "Complete interactive API console aggregating all SafeBus Shield microservices (Auth, Student, Transport, Fleet Telemetry, Driver Safety, Attendance, Emergency SOS, Notifications, and Computer Vision AI) under a single unified gateway link.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "SafeBus Shield Administration",
+      "email": "admin.admin@happyjourney.ai",
+      "url": "https://safebus-frontend-production.up.railway.app"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://safebus-backend-production-dd43.up.railway.app",
+      "description": "Production Cloud API Gateway"
+    },
+    {
+      "url": "http://localhost:8080",
+      "description": "Local Development API Gateway"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Authentication & Accounts",
+      "description": "JWT authentication, self-registration, password reset, and user session management"
+    },
+    {
+      "name": "Students & ID Cards",
+      "description": "Student roster, medical info, attendance history, and PVC ID cards (Front, Back, PDF, QR)"
+    },
+    {
+      "name": "Admin Registration & Stats",
+      "description": "System-wide dashboard statistics and student registration"
+    },
+    {
+      "name": "Fleet Tracking & Telemetry",
+      "description": "Real-time GPS vehicle coordinates, transit routes, trips, and telemetry deduplication resets"
+    },
+    {
+      "name": "Driver Safety & Telematics",
+      "description": "Driver safety scorecards, real-time drowsiness/distraction telematics, and incident reports"
+    },
+    {
+      "name": "Attendance & Boarding",
+      "description": "RFID tap & QR scans, shift resets, passenger manifests, and chronological boarding logs"
+    },
+    {
+      "name": "Emergency SOS Alerts",
+      "description": "Real-time emergency alert dispatch and resolution workflow"
+    },
+    {
+      "name": "Notifications & Alerts",
+      "description": "Multi-channel SMS, Email, and Push notification dispatches"
+    },
+    {
+      "name": "Computer Vision & Edge AI",
+      "description": "Python Edge AI face mesh analysis, Eye Aspect Ratio (EAR), head pose orientation, and buzzer alerts"
+    }
+  ],
+  "paths": {
+    "/api/v1/auth/login": {
+      "post": {
+        "tags": [
+          "Authentication & Accounts"
+        ],
+        "summary": "Authenticate user and issue JWT bearer token",
+        "description": "Validates username/email and BCrypt-hashed password. Returns signed JWT token with role claims (ADMIN, DRIVER, STUDENT, PARENT).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              },
+              "example": {
+                "username": "admin.admin@happyjourney.ai",
+                "password": "admin@ADMIN123"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authentication successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credentials"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/register": {
+      "post": {
+        "tags": [
+          "Authentication & Accounts"
+        ],
+        "summary": "Self-register new user account",
+        "description": "Creates an account with role (STUDENT, PARENT, DRIVER) and securely hashes credentials using BCrypt.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequest"
+              },
+              "example": {
+                "username": "parent_doe@happyjourney.ai",
+                "password": "SecurePassword123!",
+                "role": "PARENT",
+                "fullName": "John Doe",
+                "phone": "+919876543210"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "User registered successfully"
+          },
+          "400": {
+            "description": "Username already exists or validation failure"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "tags": [
+          "Authentication & Accounts"
+        ],
+        "summary": "Retrieve authenticated user profile",
+        "security": [
+          {
+            "Bearer Authentication": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Profile details returned"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/v1/students": {
+      "get": {
+        "tags": [
+          "Students & ID Cards"
+        ],
+        "summary": "List all registered students",
+        "description": "Returns full student directory including admission numbers, assigned routes, bus IDs, blood groups, and medical notes.",
+        "responses": {
+          "200": {
+            "description": "List of student profiles"
+          }
+        }
+      }
+    },
+    "/api/v1/students/{id}": {
+      "get": {
+        "tags": [
+          "Students & ID Cards"
+        ],
+        "summary": "Get student details by ID",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "STD001"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Student record found"
+          },
+          "404": {
+            "description": "Student not found"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Students & ID Cards"
+        ],
+        "summary": "Update full student record",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "STD001"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StudentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Student updated successfully"
+          },
+          "404": {
+            "description": "Student not found"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Students & ID Cards"
+        ],
+        "summary": "Delete student record",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "STD001"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Student deleted"
+          }
+        }
+      }
+    },
+    "/api/v1/students/{studentId}/profile": {
+      "put": {
+        "tags": [
+          "Students & ID Cards"
+        ],
+        "summary": "Update student medical profile and contact info",
+        "description": "Allows students or parents to update blood group, emergency contact address, and medical notes.",
+        "parameters": [
+          {
+            "name": "studentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "STD001"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StudentProfileUpdateRequest"
+              },
+              "example": {
+                "bloodGroup": "O+ve",
+                "address": "123, Anna Nagar, Coimbatore",
+                "medicalNotes": "Allergic to penicillin, carries inhaler"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Profile updated successfully"
+          },
+          "404": {
+            "description": "Student not found"
+          }
+        }
+      }
+    },
+    "/api/v1/students/{id}/attendance": {
+      "get": {
+        "tags": [
+          "Students & ID Cards"
+        ],
+        "summary": "Get student attendance record",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "STD001"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Attendance history returned"
+          }
+        }
+      }
+    },
+    "/api/v1/students/parent/{parentId}": {
+      "get": {
+        "tags": [
+          "Students & ID Cards"
+        ],
+        "summary": "Get students linked to parent account",
+        "parameters": [
+          {
+            "name": "parentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "ravikumar_std001.parent@happyjourney.ai"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Assigned students returned"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/students": {
+      "post": {
+        "tags": [
+          "Admin Registration & Stats"
+        ],
+        "summary": "Register a student (Admin Console)",
+        "description": "Creates student record, generates ID card assets, and assigns initial bus route.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StudentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Student created and registered"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/stats": {
+      "get": {
+        "tags": [
+          "Admin Registration & Stats"
+        ],
+        "summary": "Get administrative operational metrics",
+        "responses": {
+          "200": {
+            "description": "System-wide metrics returned"
+          }
+        }
+      }
+    },
+    "/api/v1/buses": {
+      "get": {
+        "tags": [
+          "Fleet Tracking & Telemetry"
+        ],
+        "summary": "List all active fleet buses",
+        "description": "Returns all 3 active buses with status, speed, driver license, and current GPS coordinates.",
+        "responses": {
+          "200": {
+            "description": "Fleet status list"
+          }
+        }
+      }
+    },
+    "/api/v1/buses/{id}": {
+      "get": {
+        "tags": [
+          "Fleet Tracking & Telemetry"
+        ],
+        "summary": "Get bus details by registration ID",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "TN38AB1234"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Bus record found"
+          }
+        }
+      }
+    },
+    "/api/v1/buses/location": {
+      "get": {
+        "tags": [
+          "Fleet Tracking & Telemetry"
+        ],
+        "summary": "Get real-time GPS locations for all buses",
+        "responses": {
+          "200": {
+            "description": "Real-time location stream"
+          }
+        }
+      }
+    },
+    "/api/v1/telemetry/location": {
+      "post": {
+        "tags": [
+          "Fleet Tracking & Telemetry"
+        ],
+        "summary": "Ingest bus GPS telemetry point",
+        "description": "Receives GPS coordinates from onboard GPS tracker or Phone GPS Controller, detects geofence stops, and broadcasts to WebSocket clients.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TelemetryRequest"
+              },
+              "example": {
+                "busId": "TN38AB1234",
+                "latitude": 11.0168,
+                "longitude": 76.9558,
+                "speed": 34.5,
+                "heading": 180.0
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Telemetry processed and broadcast"
+          }
+        }
+      }
+    },
+    "/api/v1/telemetry/reset": {
+      "post": {
+        "tags": [
+          "Fleet Tracking & Telemetry"
+        ],
+        "summary": "Reset trip telemetry and geofence deduplication cache",
+        "description": "Flushes alert deduplication set (`?busId=ALL` or specific bus) so approaching geofence alerts re-fire on second or subsequent loops.",
+        "parameters": [
+          {
+            "name": "busId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "ALL"
+            },
+            "example": "ALL"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Telemetry deduplication reset"
+          }
+        }
+      }
+    },
+    "/api/v1/routes": {
+      "get": {
+        "tags": [
+          "Fleet Tracking & Telemetry"
+        ],
+        "summary": "List all bus transit routes and waypoints",
+        "responses": {
+          "200": {
+            "description": "Routes list"
+          }
+        }
+      }
+    },
+    "/api/v1/trips": {
+      "get": {
+        "tags": [
+          "Fleet Tracking & Telemetry"
+        ],
+        "summary": "List active and scheduled transit trips",
+        "responses": {
+          "200": {
+            "description": "Trips list"
+          }
+        }
+      }
+    },
+    "/api/v1/driver/behavior": {
+      "get": {
+        "tags": [
+          "Driver Safety & Telematics"
+        ],
+        "summary": "Get live driver safety telematics and score",
+        "parameters": [
+          {
+            "name": "busId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "TN38AB1234"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current behavior telematics"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Driver Safety & Telematics"
+        ],
+        "summary": "Update live driver safety metrics",
+        "parameters": [
+          {
+            "name": "busId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "TN38AB1234"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DriverBehaviorDto"
+              },
+              "example": {
+                "status": "NORMAL",
+                "confidence": 0.95,
+                "faceDetected": true,
+                "eyesClosed": false,
+                "ear": 0.28,
+                "safetyScore": 95
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Driver behavior updated"
+          }
+        }
+      }
+    },
+    "/api/v1/driver/incidents": {
+      "get": {
+        "tags": [
+          "Driver Safety & Telematics"
+        ],
+        "summary": "List confirmed driver safety incidents",
+        "description": "Returns chronological audit log of all confirmed drowsiness, distraction, phone usage, and speeding events.",
+        "responses": {
+          "200": {
+            "description": "Incident history"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Driver Safety & Telematics"
+        ],
+        "summary": "Log a confirmed driver safety incident",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IncidentReportRequest"
+              },
+              "example": {
+                "busId": "TN38AB1234",
+                "driverId": "driver@happyjourney.ai",
+                "incidentType": "DROWSINESS_DETECTED",
+                "confidence": 0.95,
+                "latitude": 11.0168,
+                "longitude": 76.9558,
+                "speed": 42.0
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Incident recorded and notifications dispatched"
+          }
+        }
+      }
+    },
+    "/api/v1/attendance/scan": {
+      "post": {
+        "tags": [
+          "Attendance & Boarding"
+        ],
+        "summary": "Record RFID card tap or QR code boarding/deboarding",
+        "description": "Validates student enrollment, updates live student status (Boarded/Deboarded), records GPS stop coordinates, and dispatches parent SMS/Email notification event.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttendanceScanRequest"
+              },
+              "example": {
+                "studentId": "STD001",
+                "busId": "TN38AB1234",
+                "stopName": "Gandhipuram",
+                "scanType": "BOARDING",
+                "latitude": 11.0168,
+                "longitude": 76.9558
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Attendance transaction logged and notification enqueued"
+          }
+        }
+      }
+    },
+    "/api/v1/attendance/reset": {
+      "post": {
+        "tags": [
+          "Attendance & Boarding"
+        ],
+        "summary": "Reset shift attendance for repeated testing",
+        "description": "Clears boardings and resets student statuses to 'Absent' (`?shift=ALL` or specific shift) so attendance can be re-tested.",
+        "parameters": [
+          {
+            "name": "shift",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "ALL"
+            },
+            "example": "ALL"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Shift attendance reset"
+          }
+        }
+      }
+    },
+    "/api/v1/attendance/today": {
+      "get": {
+        "tags": [
+          "Attendance & Boarding"
+        ],
+        "summary": "Get today's real-time attendance feed",
+        "responses": {
+          "200": {
+            "description": "Today's boarding records"
+          }
+        }
+      }
+    },
+    "/api/v1/attendance/logs/{studentId}": {
+      "get": {
+        "tags": [
+          "Attendance & Boarding"
+        ],
+        "summary": "Get attendance transaction log for a student",
+        "parameters": [
+          {
+            "name": "studentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "STD001"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Student boarding history"
+          }
+        }
+      }
+    },
+    "/api/v1/attendance/bus/{busId}": {
+      "get": {
+        "tags": [
+          "Attendance & Boarding"
+        ],
+        "summary": "Get live onboard passenger manifest for a bus",
+        "parameters": [
+          {
+            "name": "busId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "TN38AB1234"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Onboard student list"
+          }
+        }
+      }
+    },
+    "/api/v1/sos/trigger": {
+      "post": {
+        "tags": [
+          "Emergency SOS Alerts"
+        ],
+        "summary": "Trigger emergency SOS alert",
+        "description": "Immediately dispatches high-priority emergency notifications to school administration, fleet managers, and parents with live GPS coordinates.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SosRequest"
+              },
+              "example": {
+                "busId": "TN38AB1234",
+                "triggeredBy": "DRIVER",
+                "reason": "Medical emergency on board",
+                "latitude": 11.0168,
+                "longitude": 76.9558
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Emergency SOS broadcasted"
+          }
+        }
+      }
+    },
+    "/api/v1/sos/active": {
+      "get": {
+        "tags": [
+          "Emergency SOS Alerts"
+        ],
+        "summary": "Get all active unresolved emergency SOS alerts",
+        "responses": {
+          "200": {
+            "description": "Active alerts list"
+          }
+        }
+      }
+    },
+    "/api/v1/sos/resolve": {
+      "post": {
+        "tags": [
+          "Emergency SOS Alerts"
+        ],
+        "summary": "Resolve an emergency alert",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Alert resolved"
+          }
+        }
+      }
+    },
+    "/api/v1/notifications": {
+      "get": {
+        "tags": [
+          "Notifications & Alerts"
+        ],
+        "summary": "List all dispatched notifications",
+        "responses": {
+          "200": {
+            "description": "Notification history"
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/send": {
+      "post": {
+        "tags": [
+          "Notifications & Alerts"
+        ],
+        "summary": "Dispatch notification to user",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationRequest"
+              },
+              "example": {
+                "recipient": "ravikumar_std001.parent@happyjourney.ai",
+                "channel": "SMS",
+                "title": "Student Boarding Notice",
+                "message": "Sathish R boarded Bus TN38AB1234 at Gandhipuram stop."
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Notification enqueued"
+          }
+        }
+      }
+    },
+    "/cv/process_frame": {
+      "post": {
+        "tags": [
+          "Computer Vision & Edge AI"
+        ],
+        "summary": "Analyze webcam frame for face mesh, EAR, and head pose",
+        "description": "Ingests base64 JPEG image frame, runs MediaPipe FaceLandmarker, computes Eye Aspect Ratio (EAR) and head direction, renders overlay bounding boxes, and detects drowsiness (eyes closed >= 3s) or distraction (looking away >= 5s).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CvFrameRequest"
+              },
+              "example": {
+                "frame": "data:image/jpeg;base64,/9j/4AAQSkZJRg...",
+                "busId": "TN38AB1234",
+                "driverId": "driver@happyjourney.ai"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Frame analyzed with rich telematics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CvTelemetryResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/cv/health": {
+      "get": {
+        "tags": [
+          "Computer Vision & Edge AI"
+        ],
+        "summary": "Computer Vision service health check",
+        "responses": {
+          "200": {
+            "description": "Service is UP"
+          }
+        }
+      }
+    },
+    "/cv/trigger_buzzer": {
+      "post": {
+        "tags": [
+          "Computer Vision & Edge AI"
+        ],
+        "summary": "Trigger physical hardware speaker buzzer alert",
+        "responses": {
+          "200": {
+            "description": "Buzzer activated"
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": [
+          "Admin Registration & Stats"
+        ],
+        "summary": "API Gateway cluster health check",
+        "responses": {
+          "200": {
+            "description": "Gateway status and frontend links"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "Bearer Authentication": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Enter your JWT token obtained from `/api/v1/auth/login`"
+      }
+    },
+    "schemas": {
+      "LoginRequest": {
+        "type": "object",
+        "required": [
+          "username",
+          "password"
+        ],
+        "properties": {
+          "username": {
+            "type": "string",
+            "example": "admin.admin@happyjourney.ai"
+          },
+          "password": {
+            "type": "string",
+            "example": "admin@ADMIN123"
+          }
+        }
+      },
+      "LoginResponse": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "ADMIN",
+              "DRIVER",
+              "STUDENT",
+              "PARENT"
+            ]
+          },
+          "id": {
+            "type": "integer"
+          }
+        }
+      },
+      "RegisterRequest": {
+        "type": "object",
+        "required": [
+          "username",
+          "password",
+          "role"
+        ],
+        "properties": {
+          "username": {
+            "type": "string",
+            "example": "newuser@happyjourney.ai"
+          },
+          "password": {
+            "type": "string",
+            "example": "SecurePass123!"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "ADMIN",
+              "DRIVER",
+              "STUDENT",
+              "PARENT"
+            ]
+          },
+          "fullName": {
+            "type": "string",
+            "example": "Alex Morgan"
+          },
+          "phone": {
+            "type": "string",
+            "example": "+919876543210"
+          }
+        }
+      },
+      "StudentDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "STD001"
+          },
+          "name": {
+            "type": "string",
+            "example": "Sathish R"
+          },
+          "grade": {
+            "type": "string",
+            "example": "IX-A"
+          },
+          "assignedBus": {
+            "type": "string",
+            "example": "TN38AB1234"
+          },
+          "bloodGroup": {
+            "type": "string",
+            "example": "O+ve"
+          },
+          "address": {
+            "type": "string",
+            "example": "Coimbatore"
+          },
+          "parentName": {
+            "type": "string",
+            "example": "Ravi Kumar"
+          },
+          "parentPhone": {
+            "type": "string",
+            "example": "+919876543210"
+          }
+        }
+      },
+      "StudentProfileUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "bloodGroup": {
+            "type": "string",
+            "example": "O+ve"
+          },
+          "address": {
+            "type": "string",
+            "example": "123, Anna Nagar, Coimbatore"
+          },
+          "medicalNotes": {
+            "type": "string",
+            "example": "Allergic to dust, carries inhaler"
+          }
+        }
+      },
+      "TelemetryRequest": {
+        "type": "object",
+        "required": [
+          "busId",
+          "latitude",
+          "longitude"
+        ],
+        "properties": {
+          "busId": {
+            "type": "string",
+            "example": "TN38AB1234"
+          },
+          "latitude": {
+            "type": "number",
+            "format": "double",
+            "example": 11.0168
+          },
+          "longitude": {
+            "type": "number",
+            "format": "double",
+            "example": 76.9558
+          },
+          "speed": {
+            "type": "number",
+            "format": "double",
+            "example": 35.0
+          },
+          "heading": {
+            "type": "number",
+            "format": "double",
+            "example": 180.0
+          }
+        }
+      },
+      "AttendanceScanRequest": {
+        "type": "object",
+        "required": [
+          "studentId",
+          "busId"
+        ],
+        "properties": {
+          "studentId": {
+            "type": "string",
+            "example": "STD001"
+          },
+          "busId": {
+            "type": "string",
+            "example": "TN38AB1234"
+          },
+          "stopName": {
+            "type": "string",
+            "example": "Gandhipuram"
+          },
+          "scanType": {
+            "type": "string",
+            "enum": [
+              "BOARDING",
+              "DEBOARDING"
+            ],
+            "example": "BOARDING"
+          },
+          "latitude": {
+            "type": "number",
+            "format": "double",
+            "example": 11.0168
+          },
+          "longitude": {
+            "type": "number",
+            "format": "double",
+            "example": 76.9558
+          }
+        }
+      },
+      "DriverBehaviorDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "NORMAL"
+          },
+          "confidence": {
+            "type": "number",
+            "example": 0.95
+          },
+          "faceDetected": {
+            "type": "boolean",
+            "example": true
+          },
+          "eyesClosed": {
+            "type": "boolean",
+            "example": false
+          },
+          "ear": {
+            "type": "number",
+            "example": 0.28
+          },
+          "safetyScore": {
+            "type": "integer",
+            "example": 95
+          }
+        }
+      },
+      "IncidentReportRequest": {
+        "type": "object",
+        "required": [
+          "busId",
+          "incidentType"
+        ],
+        "properties": {
+          "busId": {
+            "type": "string",
+            "example": "TN38AB1234"
+          },
+          "driverId": {
+            "type": "string",
+            "example": "driver@happyjourney.ai"
+          },
+          "incidentType": {
+            "type": "string",
+            "enum": [
+              "DROWSINESS_DETECTED",
+              "DISTRACTION_DETECTED",
+              "SPEEDING",
+              "PHONE_USAGE"
+            ]
+          },
+          "confidence": {
+            "type": "number",
+            "example": 0.95
+          },
+          "latitude": {
+            "type": "number",
+            "example": 11.0168
+          },
+          "longitude": {
+            "type": "number",
+            "example": 76.9558
+          },
+          "speed": {
+            "type": "number",
+            "example": 40.0
+          }
+        }
+      },
+      "SosRequest": {
+        "type": "object",
+        "required": [
+          "busId",
+          "triggeredBy"
+        ],
+        "properties": {
+          "busId": {
+            "type": "string",
+            "example": "TN38AB1234"
+          },
+          "triggeredBy": {
+            "type": "string",
+            "example": "DRIVER"
+          },
+          "reason": {
+            "type": "string",
+            "example": "Emergency vehicle assistance needed"
+          },
+          "latitude": {
+            "type": "number",
+            "example": 11.0168
+          },
+          "longitude": {
+            "type": "number",
+            "example": 76.9558
+          }
+        }
+      },
+      "NotificationRequest": {
+        "type": "object",
+        "required": [
+          "recipient",
+          "message"
+        ],
+        "properties": {
+          "recipient": {
+            "type": "string",
+            "example": "user@happyjourney.ai"
+          },
+          "channel": {
+            "type": "string",
+            "enum": [
+              "SMS",
+              "EMAIL",
+              "PUSH"
+            ],
+            "example": "SMS"
+          },
+          "title": {
+            "type": "string",
+            "example": "Student Status Alert"
+          },
+          "message": {
+            "type": "string",
+            "example": "Student has safely boarded the bus."
+          }
+        }
+      },
+      "CvFrameRequest": {
+        "type": "object",
+        "required": [
+          "frame"
+        ],
+        "properties": {
+          "frame": {
+            "type": "string",
+            "description": "Base64 encoded JPEG data URI string"
+          },
+          "busId": {
+            "type": "string",
+            "example": "TN38AB1234"
+          },
+          "driverId": {
+            "type": "string",
+            "example": "driver@happyjourney.ai"
+          }
+        }
+      },
+      "CvTelemetryResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "NORMAL"
+          },
+          "confidence": {
+            "type": "number",
+            "example": 0.95
+          },
+          "faceDetected": {
+            "type": "boolean",
+            "example": true
+          },
+          "eyesClosed": {
+            "type": "boolean",
+            "example": false
+          },
+          "ear": {
+            "type": "number",
+            "example": 0.28
+          },
+          "direction": {
+            "type": "string",
+            "example": "CENTER"
+          },
+          "drowsyDuration": {
+            "type": "number",
+            "example": 0.0
+          },
+          "distractDuration": {
+            "type": "number",
+            "example": 0.0
+          },
+          "processedImage": {
+            "type": "string",
+            "description": "Base64 JPEG image with HUD bounding box overlay"
+          }
+        }
+      }
+    }
+  }
+}

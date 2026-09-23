@@ -69,58 +69,13 @@ spring:
             - Path=/ws/**
 
 
-        # OpenAPI Doc routes mapping
-        - id: auth-openapi
-          uri: lb://auth-service
-          predicates:
-            - Path=/v3/api-docs/auth
-          filters:
-            - SetPath=/v3/api-docs
-        - id: student-openapi
-          uri: lb://student-service
-          predicates:
-            - Path=/v3/api-docs/student
-          filters:
-            - SetPath=/v3/api-docs
-        - id: transport-openapi
-          uri: lb://transport-service
-          predicates:
-            - Path=/v3/api-docs/transport
-          filters:
-            - SetPath=/v3/api-docs
-        - id: attendance-openapi
-          uri: lb://attendance-service
-          predicates:
-            - Path=/v3/api-docs/attendance
-          filters:
-            - SetPath=/v3/api-docs
-        - id: notification-openapi
-          uri: lb://notification-service
-          predicates:
-            - Path=/v3/api-docs/notification
-          filters:
-            - SetPath=/v3/api-docs
-
-# Global Swagger Enabled by Default (Local/Dev)
+# Disable heavyweight SpringDoc reflection to avoid OOM and route collisions
+# MergedOpenApiController directly serves static OpenAPI 3.0 specs and standalone Swagger UI
 springdoc:
   api-docs:
-    enabled: true
+    enabled: false
   swagger-ui:
-    enabled: true
-    path: /swagger-ui/index.html
-    urls:
-      - name: "1. 🌟 ALL Services (Unified Complete API)"
-        url: /v3/api-docs/all
-      - name: "2. Auth Service"
-        url: /v3/api-docs/auth
-      - name: "3. Student Service"
-        url: /v3/api-docs/student
-      - name: "4. Transport Service"
-        url: /v3/api-docs/transport
-      - name: "5. Attendance Service"
-        url: /v3/api-docs/attendance
-      - name: "6. Notification Service"
-        url: /v3/api-docs/notification
+    enabled: false
 
 ---
 spring:
